@@ -1,5 +1,6 @@
 
 
+
 import telebot
 from telebot import types
 import qrcode
@@ -10,6 +11,10 @@ import PyPDF2
 from googletrans import Translator
 import datetime
 import jdatetime
+import json
+import threading
+import time
+import shutil
 
 # ⚠️ توکن به صورت خودکار از تنظیمات امن گیت‌هاب خوانده می‌شود
 TOKEN = os.environ.get('TOKEN')
@@ -17,8 +22,46 @@ bot = telebot.TeleBot(TOKEN)
 
 # --- تنظیمات شخصی‌سازی ---
 LOGO_URL = "https://i.imgur.com/8QO9R3n.jpeg" 
-# لینک پشتیبانی (آیدی تلگرام شما)
 SUPPORT_LINK = "https://t.me/DarkVenom404" 
+
+# --- فایل ذخیره‌سازی اطلاعات (برای یادآورها و تاریخ عضویت) ---
+DB_FILE = "user_data.json"
+reminders_file = "reminders.json"
+
+def load_data(file):
+    if os.path.exists(file):
+        with open(file, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_data(file, data):
+    with open(file, 'w') as f:
+        json.dump(data, f)
+
+# --- سیستم یادآور (Reminder) در پس‌زمینه ---
+def reminder_worker():
+    while True:
+        reminders = load_data(reminders_file)
+        now = time.time()
+        to_remove = []
+        
+        for chat_id, user_reminders in reminders.items():
+            for rem in user_reminders:
+                if now >= rem['time']:
+                    try:
+                        bot.send_message(chat_id, f"⏰ **یادآوری:**\n{rem['text']}")
+                        to_remove.append((chat_id, rem['text']))
+                    except:
+                        pass
+        
+        if to_remove:
+            for chat_id, text in to_remove:
+                reminders[chat_id] = [r for r in reminders[chat_id] if r['text'] != text]
+            save_data(reminders_file, reminders)
+            
+        time.sleep(5) # هر ۵ ثانیه چک می‌کند
+
+threading.Thread(target=reminder_worker, daemon=True).start()
 
 # --- دیکشنری زبان‌ها ---
 LANGUAGES = {
@@ -34,11 +77,13 @@ LANGUAGES = {
         'back_btn': "🔙 بازگشت به منو",
         
         'img_to_pdf': "🖼️ لطفاً عکس خود را بفرستید تا آن را به یک فایل PDF زیبا تبدیل کنم.",
-        'txt_to_pdf': "📝 لطفاً متن خود را بفرستید تا آن را به PDF تبدیل کنم.",
-        'qr': "🔗 لطفاً متن یا لینک خود را برای ساخت QR ارسال کنید.",
+        'txt_to_pdf': "📝 لطفاً متن خود را بفرستید.\n\n💡 **مثال:** `Hello World` یا `سلام دنیا`",
+        'qr': "🔗 لطفاً متن یا لینک خود را برای ساخت QR ارسال کنید.\n\n💡 **مثال:** `https://google.com`",
         'compress_img': "🗜️ لطفاً عکس خود را بفرستید تا آن را فشرده کنم.",
-        'pdf_to_txt': "📄 لطفاً فایل PDF خود را بفرستید تا متن آن را استخراج کنم.",
-        'translate': "🌐 لطفاً متن خود را بفرستید تا آن را ترجمه کنم.",
+        'pdf_to_txt': "📄 لطفاً فایل PDF خود را بفرستید تا متن آن را به صورت یک فایل متنی (.txt) برایتان بفرستم.",
+        'translate': "🌐 لطفاً متن خود را بفرستید تا آن را ترجمه کنم.\n\n💡 **مثال:** `Hello World`",
+        
+        'processing': "⏳ در حال پردازش... لطفاً صبر کنید.",
         
         'err_processing': "❌ خطا در پردازش: {error}",
         'err_pdf': "❌ خطا در پردازش PDF: {error}",
@@ -50,12 +95,18 @@ LANGUAGES = {
         'lang_select': "🌍 لطفاً زبان خود را انتخاب کنید:",
         'main_menu_btn': "🏠 Start",
         'help_btn': "ℹ️ راهنما",
-        'help_text': "📖 راهنمای ربات جادویی:\n\n🖼️ عکس به PDF: عکس را بفرستید تا به PDF تبدیل شود.\n📝 متن به PDF: متن را بفرستید تا به PDF تبدیل شود.\n📱 ساخت QR: لینک یا متن را بفرستید تا QR ساخته شود.\n🗜️ فشرده‌سازی عکس: عکس را بفرستید تا حجم آن کم شود.\n📄 PDF به متن: فایل PDF را بفرستید تا متن آن استخراج شود.\n🌐 ترجمه: متن انگلیسی یا فارسی را بفرستید تا ترجمه شود.\n📅 تاریخ و ساعت: تاریخ شمسی و میلادی و ساعت دقیق را نشان می‌دهد.\n\n🔙 برای بازگشت به منو از دکمه زیر استفاده کنید.",
+        'help_text': "📖 راهنمای ربات:\n\n- برای استفاده از هر ابزار، روی دکمه آن کلیک کنید.\n- از دکمه Start برای بازگشت به منو استفاده کنید.\n- **دستور یادآور:** /remind",
         
         'datetime_title': "📅 تاریخ و ساعت دقیق:",
-        'about_title': "ℹ️ درباره ربات جادویی:\n\nاین ربات یک جعبه‌ابزار کامل و رایگان است که برای راحتی شما طراحی شده است.\n\n✨ نسخه: 2.0\n👨‍💻 سازنده: تیم توسعه‌دهندگان\n🚀 پلتفرم: GitHub Actions\n\nاز اینکه از ربات ما استفاده می‌کنید سپاسگزاریم ❤️",
-        
+        'about_title': "ℹ️ درباره ربات:\n\nاین ربات یک جعبه‌ابزار کامل است.\n\n✨ نسخه: 3.0\n🚀 پلتفرم: GitHub Actions",
+        'profile_btn': "👤 پروفایل من",
         'support_btn': "💬 پشتیبانی",
+        
+        'profile_text': "👤 **اطلاعات شما:**\n\n📛 نام: {name}\n🆔 آیدی عددی: `{id}`\n🌐 زبان: {lang}\n📅 تاریخ عضویت: {date}",
+        
+        'remind_prompt': "⏰ **سیستم یادآور:**\n\nلطفاً زمان و متن یادآوری را به این شکل بفرستید:\n`/remind 10m به مادرم زنگ بزنم`\n\n**واحدهای زمان:**\n`s` (ثانیه)، `m` (دقیقه)، `h` (ساعت)\n\n**مثال:** `/remind 2h جلسه کاری`",
+        'remind_set': "✅ یادآوری برای {time} دیگر تنظیم شد.",
+        'remind_invalid': "❌ فرمت اشتباه است. لطفاً از الگوی `/remind 10m متن` استفاده کنید.",
         
         'text_options': "📄 شما یک متن فرستادید. لطفاً انتخاب کنید که چه کاری روی آن انجام دهم:",
         'opt_qr': "📱 ساخت QR",
@@ -74,11 +125,13 @@ LANGUAGES = {
         'back_btn': "🔙 Back to Menu",
         
         'img_to_pdf': "🖼️ Please send your image to convert it to a beautiful PDF.",
-        'txt_to_pdf': "📝 Please send your text to convert it to PDF.",
-        'qr': "🔗 Please send text or a link to create a QR code.",
+        'txt_to_pdf': "📝 Please send your text.\n\n💡 **Example:** `Hello World`",
+        'qr': "🔗 Please send text or a link to create a QR code.\n\n💡 **Example:** `https://google.com`",
         'compress_img': "🗜️ Please send your image to compress it.",
-        'pdf_to_txt': "📄 Please send your PDF file to extract its text.",
-        'translate': "🌐 Please send your text to translate it.",
+        'pdf_to_txt': "📄 Please send your PDF file to extract its text as a .txt file.",
+        'translate': "🌐 Please send your text to translate it.\n\n💡 **Example:** `Hello World`",
+        
+        'processing': "⏳ Processing... Please wait.",
         
         'err_processing': "❌ Error processing: {error}",
         'err_pdf': "❌ Error processing PDF: {error}",
@@ -90,12 +143,18 @@ LANGUAGES = {
         'lang_select': "🌍 Please select your language:",
         'main_menu_btn': "🏠 Start",
         'help_btn': "ℹ️ Help",
-        'help_text': "📖 Magic Bot Help:\n\n🖼️ Image to PDF: Send an image to convert to PDF.\n📝 Text to PDF: Send text to convert to PDF.\n📱 Create QR: Send text or link to create a QR code.\n🗜️ Compress Image: Send an image to reduce its size.\n📄 PDF to Text: Send a PDF file to extract its text.\n🌐 Translate: Send text to translate it.\n📅 Date & Time: Shows the exact date and time.\n\n🔙 Use the button below to return to the main menu.",
+        'help_text': "📖 Bot Help:\n\n- Click on any tool's button to use it.\n- Use the Start button to return to the menu.\n- **Reminder Command:** /remind",
         
         'datetime_title': "📅 Exact Date & Time:",
-        'about_title': "ℹ️ About Magic Bot:\n\nThis bot is a complete and free toolbox designed for your convenience.\n\n✨ Version: 2.0\n👨‍💻 Developer: Dev Team\n🚀 Platform: GitHub Actions\n\nThank you for using our bot ❤️",
-        
+        'about_title': "ℹ️ About Bot:\n\nThis bot is a complete toolbox.\n\n✨ Version: 3.0\n🚀 Platform: GitHub Actions",
+        'profile_btn': "👤 My Profile",
         'support_btn': "💬 Support",
+        
+        'profile_text': "👤 **Your Info:**\n\n📛 Name: {name}\n🆔 ID: `{id}`\n🌐 Language: {lang}\n📅 Joined: {date}",
+        
+        'remind_prompt': "⏰ **Reminder System:**\n\nPlease send the time and text like this:\n`/remind 10m Call mom`\n\n**Time units:**\n`s` (seconds), `m` (minutes), `h` (hours)\n\n**Example:** `/remind 2h Work meeting`",
+        'remind_set': "✅ Reminder set for {time} later.",
+        'remind_invalid': "❌ Invalid format. Use `/remind 10m Text`.",
         
         'text_options': "📄 You sent a text. Please choose what to do with it:",
         'opt_qr': "📱 Create QR",
@@ -106,23 +165,21 @@ LANGUAGES = {
 
 user_lang = {}
 user_text = {}
+
 def get_lang(chat_id): return user_lang.get(chat_id, 'fa')
 def get_text(chat_id, key, **kwargs):
     lang = get_lang(chat_id)
     text = LANGUAGES[lang].get(key, LANGUAGES['fa'].get(key, key))
     return text.format(**kwargs)
 
-# --- منوی اصلی (Inline) ---
+# --- منوی اصلی ---
 def main_menu(chat_id):
     lang = get_lang(chat_id)
     markup = types.InlineKeyboardMarkup(row_width=2)
-    
     for row in LANGUAGES[lang]['menu_rows']:
         buttons = [types.InlineKeyboardButton(text, callback_data=data) for text, data in row]
         markup.add(*buttons)
-    
     markup.add(types.InlineKeyboardButton(LANGUAGES[lang]['change_lang_btn'], callback_data='change_lang'))
-    # فقط دکمه پشتیبانی
     markup.add(types.InlineKeyboardButton(LANGUAGES[lang]['support_btn'], url=SUPPORT_LINK))
     return markup
 
@@ -146,14 +203,18 @@ def text_options_markup(chat_id):
 def persistent_keyboard(chat_id):
     lang = get_lang(chat_id)
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    btn_start = types.KeyboardButton(LANGUAGES[lang]['main_menu_btn'])
-    btn_help = types.KeyboardButton(LANGUAGES[lang]['help_btn'])
-    markup.add(btn_start, btn_help)
+    markup.add(types.KeyboardButton(LANGUAGES[lang]['main_menu_btn']), types.KeyboardButton(LANGUAGES[lang]['help_btn']))
     return markup
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     chat_id = message.chat.id
+    # ذخیره تاریخ عضویت (اگر جدید باشد)
+    db = load_data(DB_FILE)
+    if str(chat_id) not in db:
+        db[str(chat_id)] = {'joined': datetime.datetime.now().strftime("%Y-%m-%d")}
+        save_data(DB_FILE, db)
+        
     caption = get_text(chat_id, 'welcome', name=message.from_user.first_name)
     try:
         bot.send_photo(chat_id, photo=LOGO_URL, caption=caption, reply_markup=main_menu(chat_id))
@@ -161,17 +222,39 @@ def send_welcome(message):
         bot.send_message(chat_id, caption, reply_markup=main_menu(chat_id))
     bot.send_message(chat_id, "👇", reply_markup=persistent_keyboard(chat_id))
 
-@bot.message_handler(func=lambda message: message.text in [LANGUAGES['fa']['main_menu_btn'], LANGUAGES['en']['main_menu_btn']])
-def back_to_menu(message):
+@bot.message_handler(commands=['remind'])
+def set_reminder(message):
     chat_id = message.chat.id
-    text = get_text(chat_id, 'welcome', name=message.from_user.first_name)
-    bot.send_message(chat_id, text, reply_markup=main_menu(chat_id))
+    parts = message.text.split(maxsplit=2)
+    if len(parts) < 3:
+        bot.reply_to(message, get_text(chat_id, 'remind_prompt'))
+        return
+    
+    time_str = parts[1]
+    text = parts[2]
+    
+    seconds = 0
+    try:
+        if time_str.endswith('s'): seconds = int(time_str[:-1])
+        elif time_str.endswith('m'): seconds = int(time_str[:-1]) * 60
+        elif time_str.endswith('h'): seconds = int(time_str[:-1]) * 3600
+        else: raise ValueError
+    except:
+        bot.reply_to(message, get_text(chat_id, 'remind_invalid'))
+        return
 
-@bot.message_handler(func=lambda message: message.text in [LANGUAGES['fa']['help_btn'], LANGUAGES['en']['help_btn']])
-def show_help(message):
-    chat_id = message.chat.id
-    bot.send_message(chat_id, get_text(chat_id, 'help_text'), reply_markup=back_markup(chat_id))
+    reminders = load_data(reminders_file)
+    if str(chat_id) not in reminders:
+        reminders[str(chat_id)] = []
+    
+    reminders[str(chat_id)].append({
+        'text': text,
+        'time': time.time() + seconds
+    })
+    save_data(reminders_file, reminders)
+    bot.reply_to(message, get_text(chat_id, 'remind_set', time=time_str))
 
+# --- مدیریت دکمه‌های شیشه‌ای ---
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     chat_id = call.message.chat.id
@@ -185,8 +268,23 @@ def callback_query(call):
         return
 
     if call.data == 'about_bot':
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton(LANGUAGES[get_lang(chat_id)]['profile_btn'], callback_data='profile'))
+        markup.add(types.InlineKeyboardButton(LANGUAGES[get_lang(chat_id)]['back_btn'], callback_data='main_menu'))
         bot.answer_callback_query(call.id)
-        bot.send_message(chat_id, get_text(chat_id, 'about_title'), reply_markup=back_markup(chat_id))
+        bot.send_message(chat_id, get_text(chat_id, 'about_title'), reply_markup=markup)
+        return
+
+    if call.data == 'profile':
+        db = load_data(DB_FILE)
+        joined = db.get(str(chat_id), {}).get('joined', 'Unknown')
+        text = get_text(chat_id, 'profile_text', 
+                        name=call.from_user.first_name, 
+                        id=chat_id, 
+                        lang=get_lang(chat_id), 
+                        date=joined)
+        bot.answer_callback_query(call.id)
+        bot.send_message(chat_id, text, reply_markup=back_markup(chat_id), parse_mode='Markdown')
         return
 
     if call.data == 'change_lang':
@@ -221,7 +319,7 @@ def callback_query(call):
     prompts = {'img_to_pdf':'img_to_pdf', 'txt_to_pdf':'txt_to_pdf', 'qr':'qr', 'compress_img':'compress_img', 'pdf_to_txt':'pdf_to_txt', 'translate':'translate'}
     if call.data in prompts:
         bot.answer_callback_query(call.id)
-        bot.send_message(chat_id, get_text(chat_id, prompts[call.data]), reply_markup=back_markup(chat_id))
+        bot.send_message(chat_id, get_text(chat_id, prompts[call.data]), reply_markup=back_markup(chat_id), parse_mode='Markdown')
         return
         
     if call.data in ['do_qr', 'do_translate', 'do_pdf']:
@@ -263,50 +361,79 @@ def callback_query(call):
                 bot.send_message(chat_id, f"❌ خطا: {e}", reply_markup=back_markup(chat_id))
         return
 
+# --- پردازش عکس با پوشه موقت اختصاصی ---
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
     chat_id = message.chat.id
-    msg = bot.reply_to(message, "⏳ در حال پردازش عکس...")
+    msg = bot.reply_to(message, get_text(chat_id, 'processing'))
+    
+    # ساخت پوشه اختصاصی برای هر کاربر
+    user_dir = f"temp_{chat_id}"
+    os.makedirs(user_dir, exist_ok=True)
+    
     try:
         file_info = bot.get_file(message.photo[-1].file_id)
         downloaded_file = bot.download_file(file_info.file_path)
-        with open("temp_image.jpg", 'wb') as new_file:
+        img_path = os.path.join(user_dir, "input.jpg")
+        with open(img_path, 'wb') as new_file:
             new_file.write(downloaded_file)
-        img = Image.open("temp_image.jpg")
+        
+        img = Image.open(img_path)
         img.thumbnail((800, 800))
-        img.save("processed_image.jpg", optimize=True, quality=60)
-        with open("processed_image.jpg", 'rb') as photo:
+        out_path = os.path.join(user_dir, "processed.jpg")
+        img.save(out_path, optimize=True, quality=60)
+        
+        with open(out_path, 'rb') as photo:
             bot.send_photo(chat_id, photo, caption="✅ عکس شما با موفقیت پردازش شد.", reply_markup=back_markup(chat_id))
-        os.remove("temp_image.jpg")
-        os.remove("processed_image.jpg")
+        
         bot.delete_message(chat_id, msg.message_id)
     except Exception as e:
         bot.edit_message_text(get_text(chat_id, 'err_processing', error=e), chat_id, msg.message_id, reply_markup=back_markup(chat_id))
+    finally:
+        # پاک کردن پوشه موقت
+        shutil.rmtree(user_dir, ignore_errors=True)
 
+# --- پردازش PDF به متن (به صورت فایل متنی) ---
 @bot.message_handler(content_types=['document'])
 def handle_document(message):
     chat_id = message.chat.id
     if message.document.mime_type == 'application/pdf':
-        msg = bot.reply_to(message, "⏳ در حال استخراج متن از PDF...")
+        msg = bot.reply_to(message, get_text(chat_id, 'processing'))
+        user_dir = f"temp_{chat_id}"
+        os.makedirs(user_dir, exist_ok=True)
+        
         try:
             file_info = bot.get_file(message.document.file_id)
             downloaded_file = bot.download_file(file_info.file_path)
-            with open("temp.pdf", 'wb') as new_file:
+            pdf_path = os.path.join(user_dir, "input.pdf")
+            with open(pdf_path, 'wb') as new_file:
                 new_file.write(downloaded_file)
-            with open("temp.pdf", 'rb') as pdf_file:
+                
+            with open(pdf_path, 'rb') as pdf_file:
                 reader = PyPDF2.PdfReader(pdf_file)
                 text = "".join([page.extract_text() for page in reader.pages])
+            
             if text.strip():
-                if len(text) > 4000: text = text[:4000] + "\n\n...(متن طولانی است و کوتاه شده)"
-                bot.edit_message_text(f"📄 متن استخراج شده:\n\n{text}", chat_id, msg.message_id, reply_markup=back_markup(chat_id))
+                txt_path = os.path.join(user_dir, "extracted.txt")
+                with open(txt_path, 'w', encoding='utf-8') as f:
+                    f.write(text)
+                
+                with open(txt_path, 'rb') as txt_file:
+                    bot.send_document(chat_id, txt_file, caption="✅ متن استخراج شده از PDF", reply_markup=back_markup(chat_id))
             else:
                 bot.edit_message_text("❌ هیچ متنی در این PDF پیدا نشد.", chat_id, msg.message_id, reply_markup=back_markup(chat_id))
-            os.remove("temp.pdf")
+                
         except Exception as e:
             bot.edit_message_text(get_text(chat_id, 'err_pdf', error=e), chat_id, msg.message_id, reply_markup=back_markup(chat_id))
+        finally:
+            shutil.rmtree(user_dir, ignore_errors=True)
+            try:
+                bot.delete_message(chat_id, msg.message_id)
+            except: pass
     else:
         bot.reply_to(message, get_text(chat_id, 'err_pdf_only'), reply_markup=back_markup(chat_id))
 
+# --- پردازش متن (نمایش منوی انتخاب) ---
 @bot.message_handler(func=lambda message: message.text and not message.text.startswith('/') and message.text not in [LANGUAGES['fa']['main_menu_btn'], LANGUAGES['fa']['help_btn'], LANGUAGES['en']['main_menu_btn'], LANGUAGES['en']['help_btn']])
 def handle_text(message):
     chat_id = message.chat.id
