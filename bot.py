@@ -1,5 +1,6 @@
 
 
+
 import telebot
 from telebot import types
 import qrcode
@@ -40,7 +41,8 @@ LANGUAGES = {
         'err_text': "❌ **خطا در پردازش متن.**",
         'translated': "🌐 **ترجمه:**\n{text}",
         'qr_done': "📱 **QR کد شما آماده است.**",
-        'pdf_done': "✅ **فایل PDF شما آماده است.**"
+        'pdf_done': "✅ **فایل PDF شما آماده است.**",
+        'qr_url_prompt': "🔗 **لطفاً لینک عکس خود را برای ساخت QR کد بفرستید.**"
     },
     'en': {
         'welcome': "Hello {name}! 👋\n\nWelcome to the **Magic Tools Bot**. 🌟\nI am a complete toolbox to make your daily tasks easier.\n\n👇 **Choose from the menu below:**",
@@ -67,11 +69,11 @@ LANGUAGES = {
         'err_text': "❌ **Error processing text.**",
         'translated': "🌐 **Translation:**\n{text}",
         'qr_done': "📱 **Your QR code is ready.**",
-        'pdf_done': "✅ **Your PDF file is ready.**"
+        'pdf_done': "✅ **Your PDF file is ready.**",
+        'qr_url_prompt': "🔗 **Please send the URL of the image to create a QR code.**"
     }
 }
 
-# ذخیره زبان کاربر (پیش‌فرض فارسی)
 user_lang = {}
 
 def get_lang(chat_id):
@@ -82,7 +84,6 @@ def get_text(chat_id, key, **kwargs):
     text = LANGUAGES[lang].get(key, LANGUAGES['fa'].get(key, key))
     return text.format(**kwargs)
 
-# --- منوی اصلی شیک ---
 def main_menu(chat_id):
     lang = get_lang(chat_id)
     markup = types.InlineKeyboardMarkup(row_width=2)
@@ -114,7 +115,6 @@ def callback_query(call):
         bot.edit_message_text(text, chat_id, call.message.message_id, reply_markup=main_menu(chat_id), parse_mode='Markdown')
         return
 
-    # ارسال پیام‌های راهنما بر اساس انتخاب
     prompts = {
         'img_to_pdf': 'img_to_pdf',
         'txt_to_pdf': 'txt_to_pdf',
