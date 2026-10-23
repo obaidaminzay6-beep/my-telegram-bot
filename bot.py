@@ -13,14 +13,14 @@ from googletrans import Translator
 TOKEN = os.environ.get('TOKEN')
 bot = telebot.TeleBot(TOKEN)
 
-# دیکشنری زبان‌ها (برای اختصار، فقط بخش فارسی و انگلیسی را نگه داشتم)
+# دیکشنری زبان‌ها
 LANGUAGES = {
     'fa': {
         'welcome': "سلام {name} عزیز! 👋\n\nبه **ربات جادویی ابزارها** خوش آمدید. 🌟\n\n👇 **از منوی زیر انتخاب کنید:**",
         'menu': [
             ('🖼️ عکس به PDF', 'img_to_pdf'),
             ('📝 متن به PDF', 'txt_to_pdf'),
-            ('📱 ساخت QR کد', 'qr'),
+            ('📱 ساخت QR (متن/لینک عکس)', 'qr'),
             ('🗜️ فشرده‌سازی عکس', 'compress_img'),
             ('📄 PDF به متن', 'pdf_to_txt'),
             ('🌐 ترجمه متن', 'translate'),
@@ -29,7 +29,7 @@ LANGUAGES = {
         ],
         'img_to_pdf': "🖼️ **لطفاً عکس خود را بفرستید تا آن را به PDF تبدیل کنم.**",
         'txt_to_pdf': "📝 **لطفاً متن خود را بفرستید تا آن را به PDF تبدیل کنم.**",
-        'qr': "🔗 **لطفاً لینک یا متنی که می‌خواهید QR آن ساخته شود را ارسال کنید.**",
+        'qr': "🔗 **لطفاً متن، لینک، یا لینک عکس خود را برای ساخت QR ارسال کنید.**",
         'compress_img': "🗜️ **لطفاً عکس خود را بفرستید تا آن را فشرده کنم.**",
         'pdf_to_txt': "📄 **لطفاً فایل PDF خود را بفرستید تا متن آن را استخراج کنم.**",
         'translate': "🌐 **لطفاً متن خود را بفرستید تا آن را ترجمه کنم.**",
@@ -47,7 +47,7 @@ LANGUAGES = {
         'menu': [
             ('🖼️ Image to PDF', 'img_to_pdf'),
             ('📝 Text to PDF', 'txt_to_pdf'),
-            ('📱 Create QR Code', 'qr'),
+            ('📱 Create QR (Text/Image URL)', 'qr'),
             ('🗜️ Compress Image', 'compress_img'),
             ('📄 PDF to Text', 'pdf_to_txt'),
             ('🌐 Translate Text', 'translate'),
@@ -56,7 +56,7 @@ LANGUAGES = {
         ],
         'img_to_pdf': "🖼️ **Please send your image to convert it to PDF.**",
         'txt_to_pdf': "📝 **Please send your text to convert it to PDF.**",
-        'qr': "🔗 **Please send the link or text you want to make a QR code for.**",
+        'qr': "🔗 **Please send text, a link, or an image URL to create a QR code.**",
         'compress_img': "🗜️ **Please send your image to compress it.**",
         'pdf_to_txt': "📄 **Please send your PDF file to extract its text.**",
         'translate': "🌐 **Please send your text to translate it.**",
@@ -105,11 +105,13 @@ def callback_query(call):
         text = get_text(chat_id, 'welcome', name=call.from_user.first_name)
         bot.edit_message_text(text, chat_id, call.message.message_id, reply_markup=main_menu(chat_id), parse_mode='Markdown')
         return
+    
     prompts = {'img_to_pdf':'img_to_pdf', 'txt_to_pdf':'txt_to_pdf', 'qr':'qr', 'compress_img':'compress_img', 'pdf_to_txt':'pdf_to_txt', 'translate':'translate', 'resize_img':'resize_img'}
     if call.data in prompts:
         bot.answer_callback_query(call.id)
         bot.send_message(chat_id, get_text(chat_id, prompts[call.data]), parse_mode='Markdown')
 
+# --- پردازش عکس (فشرده‌سازی یا تغییر اندازه) ---
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
     chat_id = message.chat.id
@@ -119,17 +121,21 @@ def handle_photo(message):
         downloaded_file = bot.download_file(file_info.file_path)
         with open("temp_image.jpg", 'wb') as new_file:
             new_file.write(downloaded_file)
+        
         img = Image.open("temp_image.jpg")
         img.thumbnail((800, 800))
         img.save("processed_image.jpg", optimize=True, quality=60)
+        
         with open("processed_image.jpg", 'rb') as photo:
             bot.send_photo(chat_id, photo, caption="✅ **Done / انجام شد.**")
+        
         os.remove("temp_image.jpg")
         os.remove("processed_image.jpg")
         bot.delete_message(chat_id, msg.message_id)
     except Exception as e:
         bot.edit_message_text(get_text(chat_id, 'err_processing', error=e), chat_id, msg.message_id)
 
+# --- پردازش فایل PDF ---
 @bot.message_handler(content_types=['document'])
 def handle_document(message):
     chat_id = message.chat.id
@@ -144,16 +150,17 @@ def handle_document(message):
                 reader = PyPDF2.PdfReader(pdf_file)
                 text = "".join([page.extract_text() for page in reader.pages])
             if text.strip():
-                if len(text) > 4000: text = text[:4000] + "\n\n...(Text is too long, truncated)"
+                if len(text) > 4000: text = text[:4000] + "\n\n...(Text is too long)"
                 bot.edit_message_text(f"📄 **Text:**\n\n{text}", chat_id, msg.message_id)
             else:
-                bot.edit_message_text("❌ No text found in this PDF.", chat_id, msg.message_id)
+                bot.edit_message_text("❌ No text found.", chat_id, msg.message_id)
             os.remove("temp.pdf")
         except Exception as e:
             bot.edit_message_text(get_text(chat_id, 'err_pdf', error=e), chat_id, msg.message_id)
     else:
         bot.reply_to(message, get_text(chat_id, 'err_pdf_only'))
 
+# --- پردازش متن (QR، ترجمه، PDF) ---
 @bot.message_handler(func=lambda message: message.text and not message.text.startswith('/'))
 def handle_text(message):
     chat_id = message.chat.id
@@ -187,5 +194,5 @@ def handle_text(message):
     except:
         bot.reply_to(message, get_text(chat_id, 'err_text'))
 
-print("🤖 ربات جادویی چندزبانه روشن شد...")
+print("🤖 ربات جادویی روشن شد...")
 bot.infinity_polling()
