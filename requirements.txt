@@ -3,4 +3,8 @@
 pyTelegramBotAPI
 qrcode
 fpdf
+PyPDF2
+Pillow
+googletrans==4.0.0-rc1
+
 
