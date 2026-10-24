@@ -59,7 +59,7 @@ def reminder_worker():
                 reminders[chat_id] = [r for r in reminders[chat_id] if r['text'] != text]
             save_data(reminders_file, reminders)
             
-        time.sleep(5) # هر ۵ ثانیه چک می‌کند
+        time.sleep(5)
 
 threading.Thread(target=reminder_worker, daemon=True).start()
 
@@ -209,7 +209,6 @@ def persistent_keyboard(chat_id):
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     chat_id = message.chat.id
-    # ذخیره تاریخ عضویت (اگر جدید باشد)
     db = load_data(DB_FILE)
     if str(chat_id) not in db:
         db[str(chat_id)] = {'joined': datetime.datetime.now().strftime("%Y-%m-%d")}
@@ -222,6 +221,19 @@ def send_welcome(message):
         bot.send_message(chat_id, caption, reply_markup=main_menu(chat_id))
     bot.send_message(chat_id, "👇", reply_markup=persistent_keyboard(chat_id))
 
+# --- مدیریت دکمه‌های کیبورد (با شرط مقاوم‌تر) ---
+@bot.message_handler(func=lambda message: message.text and ("Start" in message.text or "شروع" in message.text))
+def back_to_menu(message):
+    chat_id = message.chat.id
+    text = get_text(chat_id, 'welcome', name=message.from_user.first_name)
+    bot.send_message(chat_id, text, reply_markup=main_menu(chat_id))
+
+@bot.message_handler(func=lambda message: message.text and ("راهنما" in message.text or "Help" in message.text))
+def show_help(message):
+    chat_id = message.chat.id
+    bot.send_message(chat_id, get_text(chat_id, 'help_text'), reply_markup=back_markup(chat_id))
+
+# --- دستور یادآور ---
 @bot.message_handler(commands=['remind'])
 def set_reminder(message):
     chat_id = message.chat.id
@@ -361,13 +373,11 @@ def callback_query(call):
                 bot.send_message(chat_id, f"❌ خطا: {e}", reply_markup=back_markup(chat_id))
         return
 
-# --- پردازش عکس با پوشه موقت اختصاصی ---
+# --- پردازش عکس ---
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
     chat_id = message.chat.id
     msg = bot.reply_to(message, get_text(chat_id, 'processing'))
-    
-    # ساخت پوشه اختصاصی برای هر کاربر
     user_dir = f"temp_{chat_id}"
     os.makedirs(user_dir, exist_ok=True)
     
@@ -390,10 +400,9 @@ def handle_photo(message):
     except Exception as e:
         bot.edit_message_text(get_text(chat_id, 'err_processing', error=e), chat_id, msg.message_id, reply_markup=back_markup(chat_id))
     finally:
-        # پاک کردن پوشه موقت
         shutil.rmtree(user_dir, ignore_errors=True)
 
-# --- پردازش PDF به متن (به صورت فایل متنی) ---
+# --- پردازش PDF ---
 @bot.message_handler(content_types=['document'])
 def handle_document(message):
     chat_id = message.chat.id
@@ -433,8 +442,8 @@ def handle_document(message):
     else:
         bot.reply_to(message, get_text(chat_id, 'err_pdf_only'), reply_markup=back_markup(chat_id))
 
-# --- پردازش متن (نمایش منوی انتخاب) ---
-@bot.message_handler(func=lambda message: message.text and not message.text.startswith('/') and message.text not in [LANGUAGES['fa']['main_menu_btn'], LANGUAGES['fa']['help_btn'], LANGUAGES['en']['main_menu_btn'], LANGUAGES['en']['help_btn']])
+# --- پردازش متن ---
+@bot.message_handler(func=lambda message: message.text and not message.text.startswith('/') and "Start" not in message.text and "شروع" not in message.text and "راهنما" not in message.text and "Help" not in message.text)
 def handle_text(message):
     chat_id = message.chat.id
     text = message.text
