@@ -818,4 +818,3 @@ def media_handler(message):
 if __name__ == "__main__":
     logger.info("%s is starting...", BOT_NAME)
     bot.infinity_polling(skip_pending=True, timeout=30, long_polling_timeout=30)
-
