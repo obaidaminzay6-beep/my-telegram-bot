@@ -26,7 +26,7 @@ if not TOKEN:
 
 BOT_NAME = "NEXORA BOT"
 SUPPORT_LINK = os.getenv("SUPPORT_LINK", "https://t.me/DarkVenom404")
-# ⚠️ آیدی عددی خودت را اینجا گذاشتم
+# ⚠️ آیدی عددی مدیر (شما)
 ADMIN_IDS = {7210433916}
 
 DB_FILE = Path("user_data.json")
@@ -269,13 +269,18 @@ def main_menu(chat_id):
         types.InlineKeyboardButton(labels["date"], callback_data="date"),
         types.InlineKeyboardButton(labels["profile"], callback_data="profile")
     )
-    markup.row(
-        types.InlineKeyboardButton(labels["about"], callback_data="about")
-    )
+    
+    # دکمه‌های تغییر زبان و پشتیبانی
     markup.row(
         types.InlineKeyboardButton(labels["language"], callback_data="language"),
         types.InlineKeyboardButton(labels["support"], url=SUPPORT_LINK)
     )
+    
+    # دکمه درباره ربات (دراز و تمام عرض در پایین‌ترین قسمت)
+    markup.row(
+        types.InlineKeyboardButton(labels["about"], callback_data="about")
+    )
+    
     return markup
 
 def persistent_keyboard(chat_id):
