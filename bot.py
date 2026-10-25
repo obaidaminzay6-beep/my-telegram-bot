@@ -1,5 +1,3 @@
-
-
 import os
 import re
 import json
@@ -39,10 +37,6 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s: %(message)s"
 )
 logger = logging.getLogger("nexora")
-
-# ⚠️ فعال‌سازی Middleware قبل از ساخت ربات (بسیار مهم)
-telebot.apihelper.ENABLE_MIDDLEWARE = True
-
 bot = telebot.TeleBot(TOKEN, threaded=True)
 
 lock = threading.RLock()
@@ -98,7 +92,7 @@ TEXT = {
         ),
         "about_text": (
             "✨ NEXORA BOT\n"
-            "نسخه 5.0\n"
+            "نسخه 6.0 (نهایی)\n"
             "ابزارهای فایل، QR، ترجمه، یادآوری، پروفایل و امتیازدهی."
         ),
         "remind_help": (
@@ -168,7 +162,7 @@ TEXT = {
             "Cancel current operation: /cancel"
         ),
         "about_text": (
-            "✨ NEXORA BOT\nVersion 5.0\n"
+            "✨ NEXORA BOT\nVersion 6.0 (Final)\n"
             "File tools, QR, translation, reminders, profile and rating."
         ),
         "remind_help": (
@@ -412,31 +406,27 @@ def reminder_command(message):
         message, tr(message.chat.id, "remind_ok", when=parts[1])
     )
 
-# =============== LOCK CHECK MIDDLEWARE ===============
-# این تابع قبل از هر پیامی اجرا می‌شود و اگر ربات قفل باشد، به کاربر عادی جواب نمی‌دهد.
-@bot.middleware_handler(update_types=['message', 'callback_query'])
-def check_lock(bot_instance, update):
-    # اگر کاربر مدیر باشد، همیشه اجازه دسترسی دارد
-    if update.from_user.id in ADMIN_IDS:
-        return
-    
-    # اگر ربات قفل باشد
-    if is_locked():
-        # فقط به کاربر عادی پیام تعمیر را بفرست
-        chat_id = update.chat.id if hasattr(update, 'chat') else update.message.chat.id
-        bot_instance.send_message(chat_id, tr(chat_id, "maintenance_msg"))
-        # جلوی ادامه پردازش پیام را بگیر
-        raise Exception("Bot is locked")
+# =============== LOCK CHECK ===============
+def check_lock(chat_id, user_id):
+    """بررسی می‌کند که آیا ربات قفل است یا نه. اگر قفل بود، پیام می‌دهد."""
+    if is_locked() and user_id not in ADMIN_IDS:
+        bot.send_message(chat_id, tr(chat_id, "maintenance_msg"))
+        return False
+    return True
 
 # =============== COMMANDS ===============
 @bot.message_handler(commands=["start"])
 def start_command(message):
     register_user(message.from_user)
+    if not check_lock(message.chat.id, message.from_user.id):
+        return
     show_home(message.chat.id, message.from_user.first_name)
 
 @bot.message_handler(commands=["help"])
 def help_command(message):
     register_user(message.from_user)
+    if not check_lock(message.chat.id, message.from_user.id):
+        return
     bot.send_message(
         message.chat.id, tr(message.chat.id, "help"),
         reply_markup=back_menu(message.chat.id)
@@ -444,6 +434,8 @@ def help_command(message):
 
 @bot.message_handler(commands=["cancel"])
 def cancel_command(message):
+    if not check_lock(message.chat.id, message.from_user.id):
+        return
     user_modes.pop(str(message.chat.id), None)
     user_text.pop(str(message.chat.id), None)
     bot.send_message(
@@ -526,6 +518,11 @@ def callback_handler(call):
     chat_id = call.message.chat.id
     register_user(call.from_user)
     bot.answer_callback_query(call.id)
+
+    if call.data != "home":
+        if not check_lock(chat_id, call.from_user.id):
+            return
+
     data = call.data
 
     if data == "home":
@@ -654,6 +651,10 @@ def callback_handler(call):
 def text_handler(message):
     chat_id = message.chat.id
     register_user(message.from_user)
+    
+    if not check_lock(chat_id, message.from_user.id):
+        return
+
     mode = user_modes.get(str(chat_id))
     text = message.text
 
@@ -741,6 +742,10 @@ def get_file_bytes(file_id):
 def media_handler(message):
     chat_id = message.chat.id
     register_user(message.from_user)
+    
+    if not check_lock(chat_id, message.from_user.id):
+        return
+
     mode = user_modes.get(str(chat_id))
 
     is_photo = message.content_type == "photo"
