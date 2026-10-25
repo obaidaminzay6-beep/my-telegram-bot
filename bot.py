@@ -39,6 +39,10 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s: %(message)s"
 )
 logger = logging.getLogger("nexora")
+
+# ⚠️ فعال‌سازی Middleware قبل از ساخت ربات (بسیار مهم)
+telebot.apihelper.ENABLE_MIDDLEWARE = True
+
 bot = telebot.TeleBot(TOKEN, threaded=True)
 
 lock = threading.RLock()
