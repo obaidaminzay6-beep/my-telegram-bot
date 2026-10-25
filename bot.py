@@ -6,6 +6,9 @@ import logging
 import threading
 import tempfile
 import datetime
+import platform
+import psutil
+import speedtest
 from pathlib import Path
 
 import telebot
@@ -59,16 +62,16 @@ TEXT = {
         "img_pdf": "🖼️ عکس به PDF",
         "text_pdf": "📝 متن به PDF",
         "pdf_text": "📄 PDF به متن",
-        "compress": "🗜️ فشرده‌سازی عکس",
+        "speed_test": "📶 تست سرعت اینترنت",
         "qr": "📱 ساخت QR",
         "translate": "🌐 ترجمه متن",
         "date": "📅 تاریخ و ساعت",
-        "profile": "👤 پروفایل من",
+        "device_info": "📱 اطلاعات گوشی",
         "about": "ℹ️ درباره ربات",
+        "profile": "👤 پروفایل من",
         "prompt_img_pdf": "🖼️ عکس خود را بفرست تا به PDF تبدیل کنم.",
         "prompt_text_pdf": "📝 متن خود را بفرست تا به PDF تبدیل کنم.",
         "prompt_pdf_text": "📄 فایل PDF خود را بفرست.",
-        "prompt_compress": "🗜️ عکس خود را بفرست تا فشرده شود.",
         "prompt_qr": "📱 متن یا لینک را بفرست تا QR بسازم.",
         "prompt_translate": "🌐 متن خود را برای ترجمه بفرست.",
         "processing": "⏳ در حال پردازش؛ لطفاً صبر کن.",
@@ -92,8 +95,8 @@ TEXT = {
         ),
         "about_text": (
             "✨ NEXORA BOT\n"
-            "نسخه 6.0 (نهایی)\n"
-            "ابزارهای فایل، QR، ترجمه، یادآوری، پروفایل و امتیازدهی."
+            "نسخه 7.0\n"
+            "ابزارهای فایل، تست سرعت، QR، ترجمه، یادآوری و اطلاعات گوشی."
         ),
         "remind_help": (
             "فرمت یادآوری:\n"
@@ -117,7 +120,10 @@ TEXT = {
         "broadcast_prompt": "📢 لطفاً پیام خود را برای ارسال همگانی بنویسید:",
         "broadcast_done": "✅ پیام شما به {count} کاربر ارسال شد.",
         "lock_done": "🔒 ربات قفل شد (حالت تعمیر).",
-        "unlock_done": "🔓 ربات از حالت تعمیر خارج شد."
+        "unlock_done": "🔓 ربات از حالت تعمیر خارج شد.",
+        "speed_test_start": "⏳ در حال تست سرعت اینترنت... لطفاً صبر کنید.",
+        "speed_test_result": "📶 نتیجه تست سرعت:\n\n⬇️ دانلود: {download} Mbps\n⬆️ آپلود: {upload} Mbps\n📡 پینگ: {ping} ms",
+        "device_info_result": "📱 اطلاعات گوشی:\n\n📛 مدل: {model}\n📟 سیستم‌عامل: {system}\n🧠 پردازنده: {processor}\n💾 رم: {ram}\n💿 فضای خالی: {storage}"
     },
     "en": {
         "welcome": (
@@ -131,16 +137,16 @@ TEXT = {
         "img_pdf": "🖼️ Image to PDF",
         "text_pdf": "📝 Text to PDF",
         "pdf_text": "📄 PDF to Text",
-        "compress": "🗜️ Compress Image",
+        "speed_test": "📶 Internet Speed Test",
         "qr": "📱 Create QR",
         "translate": "🌐 Translate Text",
         "date": "📅 Date & Time",
-        "profile": "👤 My Profile",
+        "device_info": "📱 Device Info",
         "about": "ℹ️ About Bot",
+        "profile": "👤 My Profile",
         "prompt_img_pdf": "🖼️ Send an image to convert to PDF.",
         "prompt_text_pdf": "📝 Send text to convert to PDF.",
         "prompt_pdf_text": "📄 Send a PDF file.",
-        "prompt_compress": "🗜️ Send an image to compress.",
         "prompt_qr": "📱 Send text or a link to create a QR code.",
         "prompt_translate": "🌐 Send text to translate.",
         "processing": "⏳ Processing. Please wait.",
@@ -162,8 +168,8 @@ TEXT = {
             "Cancel current operation: /cancel"
         ),
         "about_text": (
-            "✨ NEXORA BOT\nVersion 6.0 (Final)\n"
-            "File tools, QR, translation, reminders, profile and rating."
+            "✨ NEXORA BOT\nVersion 7.0\n"
+            "File tools, speed test, QR, translation, reminders and device info."
         ),
         "remind_help": (
             "Reminder format:\n/remind 10m reminder text\n"
@@ -186,7 +192,10 @@ TEXT = {
         "broadcast_prompt": "📢 Please enter your broadcast message:",
         "broadcast_done": "✅ Message sent to {count} users.",
         "lock_done": "🔒 Bot locked (maintenance mode).",
-        "unlock_done": "🔓 Bot unlocked."
+        "unlock_done": "🔓 Bot unlocked.",
+        "speed_test_start": "⏳ Testing internet speed... Please wait.",
+        "speed_test_result": "📶 Speed Test Result:\n\n⬇️ Download: {download} Mbps\n⬆️ Upload: {upload} Mbps\n📡 Ping: {ping} ms",
+        "device_info_result": "📱 Device Info:\n\n📛 Model: {model}\n📟 System: {system}\n🧠 Processor: {processor}\n💾 RAM: {ram}\n💿 Free Storage: {storage}"
     },
 }
 
@@ -256,7 +265,7 @@ def main_menu(chat_id):
     )
     markup.row(
         types.InlineKeyboardButton(labels["pdf_text"], callback_data="pdf_to_text"),
-        types.InlineKeyboardButton(labels["compress"], callback_data="compress")
+        types.InlineKeyboardButton(labels["speed_test"], callback_data="speed_test")
     )
     markup.row(
         types.InlineKeyboardButton(labels["qr"], callback_data="qr"),
@@ -264,7 +273,7 @@ def main_menu(chat_id):
     )
     markup.row(
         types.InlineKeyboardButton(labels["date"], callback_data="date"),
-        types.InlineKeyboardButton(labels["profile"], callback_data="profile")
+        types.InlineKeyboardButton(labels["device_info"], callback_data="device_info")
     )
     markup.row(
         types.InlineKeyboardButton(labels["language"], callback_data="language"),
@@ -408,7 +417,6 @@ def reminder_command(message):
 
 # =============== LOCK CHECK ===============
 def check_lock(chat_id, user_id):
-    """بررسی می‌کند که آیا ربات قفل است یا نه. اگر قفل بود، پیام می‌دهد."""
     if is_locked() and user_id not in ADMIN_IDS:
         bot.send_message(chat_id, tr(chat_id, "maintenance_msg"))
         return False
@@ -549,9 +557,12 @@ def callback_handler(call):
         return
 
     if data == "about":
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton(TEXT[language(chat_id)]["profile"], callback_data="profile"))
+        markup.add(types.InlineKeyboardButton(tr(chat_id, "back"), callback_data="home"))
         bot.send_message(
             chat_id, tr(chat_id, "about_text"),
-            reply_markup=back_menu(chat_id)
+            reply_markup=markup
         )
         return
 
@@ -591,11 +602,44 @@ def callback_handler(call):
         )
         return
 
+    if data == "speed_test":
+        msg = bot.send_message(chat_id, tr(chat_id, "speed_test_start"))
+        try:
+            st = speedtest.Speedtest()
+            st.get_best_server()
+            download = st.download() / 1_000_000
+            upload = st.upload() / 1_000_000
+            ping = st.results.ping
+            bot.edit_message_text(
+                tr(chat_id, "speed_test_result", download=f"{download:.2f}", upload=f"{upload:.2f}", ping=f"{ping:.0f}"),
+                chat_id, msg.message_id, reply_markup=back_menu(chat_id)
+            )
+        except Exception as e:
+            logger.exception("Speed test error")
+            bot.edit_message_text(tr(chat_id, "error"), chat_id, msg.message_id)
+        return
+
+    if data == "device_info":
+        try:
+            model = platform.model if hasattr(platform, 'model') else platform.machine()
+            system = f"{platform.system()} {platform.release()}"
+            processor = platform.processor()
+            ram = f"{psutil.virtual_memory().total / (1024**3):.1f} GB"
+            storage = f"{psutil.disk_usage('/').free / (1024**3):.1f} GB free"
+            bot.send_message(
+                chat_id,
+                tr(chat_id, "device_info_result", model=model, system=system, processor=processor, ram=ram, storage=storage),
+                reply_markup=back_menu(chat_id)
+            )
+        except Exception as e:
+            logger.exception("Device info error")
+            bot.send_message(chat_id, tr(chat_id, "error"), reply_markup=back_menu(chat_id))
+        return
+
     modes = {
         "img_to_pdf": "prompt_img_pdf",
         "text_to_pdf": "prompt_text_pdf",
         "pdf_to_text": "prompt_pdf_text",
-        "compress": "prompt_compress",
         "qr": "prompt_qr",
         "translate": "prompt_translate",
     }
@@ -769,24 +813,6 @@ def media_handler(message):
                 with Image.open(source) as img:
                     img = ImageOps.exif_transpose(img).convert("RGB")
                     img.save(output, "PDF", resolution=150)
-                with output.open("rb") as f:
-                    bot.send_document(
-                        chat_id, f, caption=tr(chat_id, "done"),
-                        reply_markup=back_menu(chat_id)
-                    )
-                user_modes.pop(str(chat_id), None)
-                ask_rating(chat_id)
-                return
-
-            if is_photo and mode == "compress":
-                raw = get_file_bytes(message.photo[-1].file_id)
-                source = td / "input.jpg"
-                output = td / "compressed.jpg"
-                source.write_bytes(raw)
-                with Image.open(source) as img:
-                    img = ImageOps.exif_transpose(img).convert("RGB")
-                    img.thumbnail((1600, 1600))
-                    img.save(output, "JPEG", quality=68, optimize=True)
                 with output.open("rb") as f:
                     bot.send_document(
                         chat_id, f, caption=tr(chat_id, "done"),
