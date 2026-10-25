@@ -408,13 +408,26 @@ def reminder_command(message):
         message, tr(message.chat.id, "remind_ok", when=parts[1])
     )
 
+# =============== LOCK CHECK MIDDLEWARE ===============
+# این تابع قبل از هر پیامی اجرا می‌شود و اگر ربات قفل باشد، به کاربر عادی جواب نمی‌دهد.
+@bot.middleware_handler(update_types=['message', 'callback_query'])
+def check_lock(bot_instance, update):
+    # اگر کاربر مدیر باشد، همیشه اجازه دسترسی دارد
+    if update.from_user.id in ADMIN_IDS:
+        return
+    
+    # اگر ربات قفل باشد
+    if is_locked():
+        # فقط به کاربر عادی پیام تعمیر را بفرست
+        chat_id = update.chat.id if hasattr(update, 'chat') else update.message.chat.id
+        bot_instance.send_message(chat_id, tr(chat_id, "maintenance_msg"))
+        # جلوی ادامه پردازش پیام را بگیر
+        raise Exception("Bot is locked")
+
 # =============== COMMANDS ===============
 @bot.message_handler(commands=["start"])
 def start_command(message):
     register_user(message.from_user)
-    if is_locked() and message.from_user.id not in ADMIN_IDS:
-        bot.reply_to(message, tr(message.chat.id, "maintenance_msg"))
-        return
     show_home(message.chat.id, message.from_user.first_name)
 
 @bot.message_handler(commands=["help"])
