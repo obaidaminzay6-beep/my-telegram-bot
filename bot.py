@@ -39,6 +39,7 @@ bot = telebot.TeleBot(TOKEN, threaded=True)
 lock = threading.RLock()
 user_modes = {}
 user_text = {}
+admin_broadcast_mode = set() # برای تشخیص اینکه ادمین در حال ارسال پیام همگانی است
 
 # =============== LANGUAGE TEXTS ===============
 TEXT = {
@@ -395,6 +396,11 @@ def start_command(message):
         
     show_home(message.chat.id, message.from_user.first_name)
 
+@bot.message_handler(commands=["language"])
+def language_command(message):
+    register_user(message.from_user)
+    bot.send_message(message.chat.id, tr(message.chat.id, "choose_lang"), reply_markup=lang_menu())
+
 @bot.message_handler(commands=["panel"])
 def admin_panel(message):
     if message.from_user.id not in ADMIN_IDS:
@@ -427,7 +433,23 @@ def cancel_command(message):
     if not check_lock(message.chat.id, message.from_user.id): return
     user_modes.pop(str(message.chat.id), None)
     user_text.pop(str(message.chat.id), None)
+    admin_broadcast_mode.discard(message.from_user.id)
     bot.send_message(message.chat.id, "✅ " + tr(message.chat.id, "back"), reply_markup=main_menu(message.chat.id))
+
+# =============== BROADCAST ===============
+def send_broadcast(message):
+    admin_broadcast_mode.discard(message.from_user.id)
+    if message.from_user.id not in ADMIN_IDS: return
+    users = load_json(DB_FILE)
+    count = 0
+    for chat_id in users.keys():
+        try:
+            bot.send_message(chat_id, message.text)
+            count += 1
+            time.sleep(0.05) # تاخیر برای جلوگیری از بلاک شدن توسط تلگرام
+        except Exception:
+            pass
+    bot.reply_to(message, tr(message.chat.id, "broadcast_done", count=count))
 
 # =============== RATING ===============
 def ask_rating(chat_id):
@@ -496,8 +518,8 @@ def callback_handler(call):
 
     # --- ADMIN PANEL CALLBACKS ---
     if data == "admin_broadcast" and user.id in ADMIN_IDS:
-        msg = bot.send_message(chat_id, tr(chat_id, "broadcast_prompt"))
-        bot.register_next_step_handler(msg, send_broadcast)
+        admin_broadcast_mode.add(user.id)
+        bot.send_message(chat_id, tr(chat_id, "broadcast_prompt"))
         return
     if data == "admin_stats" and user.id in ADMIN_IDS:
         db = load_json(DB_FILE)
@@ -580,9 +602,16 @@ def callback_handler(call):
 @bot.message_handler(func=lambda m: bool(m.text) and not m.text.startswith("/"))
 def text_handler(message):
     chat_id = message.chat.id
+    user_id = message.from_user.id
     register_user(message.from_user)
-    if not check_lock(chat_id, message.from_user.id): return
-    if not is_approved(message.from_user.id):
+    
+    # بررسی اگر ادمین در حال ارسال پیام همگانی است
+    if user_id in admin_broadcast_mode:
+        send_broadcast(message)
+        return
+
+    if not check_lock(chat_id, user_id): return
+    if not is_approved(user_id):
         bot.send_message(chat_id, tr(chat_id, "wait_approval"))
         return
         
