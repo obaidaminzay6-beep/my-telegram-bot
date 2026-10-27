@@ -1,3 +1,5 @@
+
+
 import os
 import re
 import json
@@ -8,7 +10,6 @@ import tempfile
 import datetime
 import platform
 import psutil
-import speedtest
 from pathlib import Path
 
 import telebot
@@ -19,13 +20,15 @@ import PyPDF2
 from fpdf import FPDF
 from googletrans import Translator
 import jdatetime
+import requests
+from moviepy.editor import ImageClip, AudioFileClip
 
 # =============== NEXORA BOT CONFIG ===============
 TOKEN = os.getenv("TOKEN", "").strip()
 if not TOKEN:
-    raise RuntimeError("TOKEN is missing. Set it in your environment.")
+    raise RuntimeError("TOKEN is missing.")
 
-BOT_NAME = "NEXORA BOT"
+BOT_NAME = "NEXORA BOT v8.0"
 SUPPORT_LINK = os.getenv("SUPPORT_LINK", "https://t.me/DarkVenom404")
 ADMIN_IDS = {7210433916}
 
@@ -35,10 +38,7 @@ RATINGS_FILE = Path("ratings.json")
 MAINTENANCE_FILE = Path("maintenance.json")
 MAX_FILE_MB = 20
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s: %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger("nexora")
 bot = telebot.TeleBot(TOKEN, threaded=True)
 
@@ -49,12 +49,7 @@ user_text = {}
 # =============== LANGUAGE TEXTS ===============
 TEXT = {
     "fa": {
-        "welcome": (
-            "✨ سلام {name} عزیز!\n\n"
-            "به NEXORA BOT خوش آمدی.\n"
-            "جعبه‌ابزار دیجیتالی تو برای کارهای روزمره.\n\n"
-            "یکی از ابزارهای زیر را انتخاب کن:"
-        ),
+        "welcome": "✨ سلام {name} عزیز!\n\nبه NEXORA BOT خوش آمدی.\nجعبه‌ابزار دیجیتالی تو برای کارهای روزمره.\n\nیکی از ابزارهای زیر را انتخاب کن:",
         "language": "🌍 تغییر زبان",
         "support": "💬 پشتیبانی",
         "home": "🏠 خانه",
@@ -62,11 +57,11 @@ TEXT = {
         "img_pdf": "🖼️ عکس به PDF",
         "text_pdf": "📝 متن به PDF",
         "pdf_text": "📄 PDF به متن",
-        "speed_test": "📶 تست سرعت اینترنت",
+        "ai_assistant": "🤖 دستیار هوش مصنوعی",
         "qr": "📱 ساخت QR",
         "translate": "🌐 ترجمه متن",
         "date": "📅 تاریخ و ساعت",
-        "device_info": "📱 اطلاعات گوشی",
+        "video_maker": "🎬 ساخت ویدیو",
         "about": "ℹ️ درباره ربات",
         "profile": "👤 پروفایل من",
         "prompt_img_pdf": "🖼️ عکس خود را بفرست تا به PDF تبدیل کنم.",
@@ -74,6 +69,8 @@ TEXT = {
         "prompt_pdf_text": "📄 فایل PDF خود را بفرست.",
         "prompt_qr": "📱 متن یا لینک را بفرست تا QR بسازم.",
         "prompt_translate": "🌐 متن خود را برای ترجمه بفرست.",
+        "prompt_ai": "🤖 لطفاً سوال خود را بنویسید تا هوش مصنوعی پاسخ دهد.",
+        "prompt_video": "🎬 لطفاً یک عکس و سپس یک آهنگ بفرستید تا ویدیو بسازم (عکس را اول بفرستید).",
         "processing": "⏳ در حال پردازش؛ لطفاً صبر کن.",
         "done": "✅ عملیات با موفقیت انجام شد.",
         "error": "❌ عملیات انجام نشد. دوباره امتحان کن.",
@@ -85,31 +82,12 @@ TEXT = {
         "opt_pdf": "📝 تبدیل به PDF",
         "back": "🔙 بازگشت به منو",
         "choose_lang": "زبان را انتخاب کن:",
-        "help": (
-            "📖 راهنمای NEXORA BOT\n\n"
-            "۱. از منو یک ابزار انتخاب کن.\n"
-            "۲. متن یا فایل مورد نیاز را بفرست.\n"
-            "۳. برای بازگشت از دکمه خانه استفاده کن.\n\n"
-            "یادآوری:\n/remind 10m به مادرم زنگ بزنم\n"
-            "لغو عملیات: /cancel"
-        ),
-        "about_text": (
-            "✨ NEXORA BOT\n"
-            "نسخه 7.0\n"
-            "ابزارهای فایل، تست سرعت، QR، ترجمه، یادآوری و اطلاعات گوشی."
-        ),
-        "remind_help": (
-            "فرمت یادآوری:\n"
-            "/remind 10m متن یادآوری\n\n"
-            "واحدها: s ثانیه، m دقیقه، h ساعت، d روز"
-        ),
+        "help": "📖 راهنمای NEXORA BOT\n\n۱. از منو یک ابزار انتخاب کن.\n۲. متن یا فایل مورد نیاز را بفرست.\n۳. برای بازگشت از دکمه خانه استفاده کن.\n\nلغو عملیات: /cancel",
+        "about_text": "✨ NEXORA BOT\nنسخه 8.0\nابزارهای فایل، هوش مصنوعی، ساخت ویدیو، QR، ترجمه، یادآوری.",
+        "remind_help": "فرمت یادآوری:\n/remind 10m متن یادآوری\n\nواحدها: s ثانیه، m دقیقه، h ساعت، d روز",
         "remind_bad": "❌ فرمت اشتباه است. مثال: /remind 10m تماس بگیر",
         "remind_ok": "✅ یادآوری برای {when} دیگر تنظیم شد.",
-        "profile_text": (
-            "👤 پروفایل شما\n\nنام: {name}\n"
-            "شناسه: {id}\nزبان: {lang}\n"
-            "تاریخ عضویت: {joined}\nیادآورهای فعال: {reminders}"
-        ),
+        "profile_text": "👤 پروفایل شما\n\nنام: {name}\nشناسه: {id}\nزبان: {lang}\nتاریخ عضویت: {joined}\nیادآورهای فعال: {reminders}",
         "admin_only": "این فرمان مخصوص مدیر ربات است.",
         "admin_stats": "📊 کاربران: {users}\nیادآورهای فعال: {reminders}",
         "translated": "🌐 ترجمه:\n\n{result}",
@@ -120,16 +98,10 @@ TEXT = {
         "broadcast_prompt": "📢 لطفاً پیام خود را برای ارسال همگانی بنویسید:",
         "broadcast_done": "✅ پیام شما به {count} کاربر ارسال شد.",
         "lock_done": "🔒 ربات قفل شد (حالت تعمیر).",
-        "unlock_done": "🔓 ربات از حالت تعمیر خارج شد.",
-        "speed_test_start": "⏳ در حال تست سرعت اینترنت... لطفاً صبر کنید.",
-        "speed_test_result": "📶 نتیجه تست سرعت:\n\n⬇️ دانلود: {download} Mbps\n⬆️ آپلود: {upload} Mbps\n📡 پینگ: {ping} ms",
-        "device_info_result": "📱 اطلاعات گوشی:\n\n📛 مدل: {model}\n📟 سیستم‌عامل: {system}\n🧠 پردازنده: {processor}\n💾 رم: {ram}\n💿 فضای خالی: {storage}"
+        "unlock_done": "🔓 ربات از حالت تعمیر خارج شد."
     },
     "en": {
-        "welcome": (
-            "✨ Hello {name}!\n\nWelcome to NEXORA BOT.\n"
-            "Your digital toolbox for everyday tasks.\n\nChoose a tool:"
-        ),
+        "welcome": "✨ Hello {name}!\n\nWelcome to NEXORA BOT.\nYour digital toolbox for everyday tasks.\n\nChoose a tool:",
         "language": "🌍 Change language",
         "support": "💬 Support",
         "home": "🏠 Home",
@@ -137,11 +109,11 @@ TEXT = {
         "img_pdf": "🖼️ Image to PDF",
         "text_pdf": "📝 Text to PDF",
         "pdf_text": "📄 PDF to Text",
-        "speed_test": "📶 Internet Speed Test",
+        "ai_assistant": "🤖 AI Assistant",
         "qr": "📱 Create QR",
         "translate": "🌐 Translate Text",
         "date": "📅 Date & Time",
-        "device_info": "📱 Device Info",
+        "video_maker": "🎬 Video Maker",
         "about": "ℹ️ About Bot",
         "profile": "👤 My Profile",
         "prompt_img_pdf": "🖼️ Send an image to convert to PDF.",
@@ -149,6 +121,8 @@ TEXT = {
         "prompt_pdf_text": "📄 Send a PDF file.",
         "prompt_qr": "📱 Send text or a link to create a QR code.",
         "prompt_translate": "🌐 Send text to translate.",
+        "prompt_ai": "🤖 Please type your question for the AI.",
+        "prompt_video": "🎬 Please send an image first, then an audio file to create a video.",
         "processing": "⏳ Processing. Please wait.",
         "done": "✅ Completed successfully.",
         "error": "❌ Operation failed. Please try again.",
@@ -160,28 +134,12 @@ TEXT = {
         "opt_pdf": "📝 Convert to PDF",
         "back": "🔙 Back to menu",
         "choose_lang": "Choose your language:",
-        "help": (
-            "📖 NEXORA BOT Help\n\n"
-            "1. Choose a tool from the menu.\n"
-            "2. Send the requested text or file.\n"
-            "Reminder: /remind 10m Call mom\n"
-            "Cancel current operation: /cancel"
-        ),
-        "about_text": (
-            "✨ NEXORA BOT\nVersion 7.0\n"
-            "File tools, speed test, QR, translation, reminders and device info."
-        ),
-        "remind_help": (
-            "Reminder format:\n/remind 10m reminder text\n"
-            "Units: s seconds, m minutes, h hours, d days"
-        ),
+        "help": "📖 NEXORA BOT Help\n\n1. Choose a tool from the menu.\n2. Send the requested text or file.\nCancel current operation: /cancel",
+        "about_text": "✨ NEXORA BOT\nVersion 8.0\nFile tools, AI, Video Maker, QR, translation, reminders.",
+        "remind_help": "Reminder format:\n/remind 10m reminder text\nUnits: s seconds, m minutes, h hours, d days",
         "remind_bad": "❌ Invalid format. Example: /remind 10m Call back",
         "remind_ok": "✅ Reminder set for {when} from now.",
-        "profile_text": (
-            "👤 Your Profile\n\nName: {name}\nID: {id}\n"
-            "Language: {lang}\nJoined: {joined}\n"
-            "Active reminders: {reminders}"
-        ),
+        "profile_text": "👤 Your Profile\n\nName: {name}\nID: {id}\nLanguage: {lang}\nJoined: {joined}\nActive reminders: {reminders}",
         "admin_only": "This command is for the bot administrator.",
         "admin_stats": "📊 Users: {users}\nActive reminders: {reminders}",
         "translated": "🌐 Translation:\n\n{result}",
@@ -192,10 +150,7 @@ TEXT = {
         "broadcast_prompt": "📢 Please enter your broadcast message:",
         "broadcast_done": "✅ Message sent to {count} users.",
         "lock_done": "🔒 Bot locked (maintenance mode).",
-        "unlock_done": "🔓 Bot unlocked.",
-        "speed_test_start": "⏳ Testing internet speed... Please wait.",
-        "speed_test_result": "📶 Speed Test Result:\n\n⬇️ Download: {download} Mbps\n⬆️ Upload: {upload} Mbps\n📡 Ping: {ping} ms",
-        "device_info_result": "📱 Device Info:\n\n📛 Model: {model}\n📟 System: {system}\n🧠 Processor: {processor}\n💾 RAM: {ram}\n💿 Free Storage: {storage}"
+        "unlock_done": "🔓 Bot unlocked."
     },
 }
 
@@ -265,7 +220,7 @@ def main_menu(chat_id):
     )
     markup.row(
         types.InlineKeyboardButton(labels["pdf_text"], callback_data="pdf_to_text"),
-        types.InlineKeyboardButton(labels["speed_test"], callback_data="speed_test")
+        types.InlineKeyboardButton(labels["ai_assistant"], callback_data="ai_assistant")
     )
     markup.row(
         types.InlineKeyboardButton(labels["qr"], callback_data="qr"),
@@ -273,7 +228,7 @@ def main_menu(chat_id):
     )
     markup.row(
         types.InlineKeyboardButton(labels["date"], callback_data="date"),
-        types.InlineKeyboardButton(labels["device_info"], callback_data="device_info")
+        types.InlineKeyboardButton(labels["video_maker"], callback_data="video_maker")
     )
     markup.row(
         types.InlineKeyboardButton(labels["language"], callback_data="language"),
@@ -295,9 +250,7 @@ def persistent_keyboard(chat_id):
 
 def back_menu(chat_id):
     return types.InlineKeyboardMarkup().add(
-        types.InlineKeyboardButton(
-            tr(chat_id, "back"), callback_data="home"
-        )
+        types.InlineKeyboardButton(tr(chat_id, "back"), callback_data="home")
     )
 
 def show_home(chat_id, name=""):
@@ -325,9 +278,7 @@ def make_pdf(text, output):
     needs_unicode = any(ord(ch) > 127 for ch in text)
 
     if needs_unicode and not font:
-        raise RuntimeError(
-            "برای PDF فارسی فونت Unicode نصب کن و PDF_UNICODE_FONT را تنظیم کن."
-        )
+        raise RuntimeError("Unicode font missing.")
 
     pdf.add_page()
     if font:
@@ -347,6 +298,15 @@ def make_pdf(text, output):
         pdf.multi_cell(0, 8, shape(line))
     pdf.output(str(output))
 
+# =============== VIDEO MAKER ===============
+def make_video(image_path, audio_path, output_path):
+    audio = AudioFileClip(str(audio_path))
+    img = ImageClip(str(image_path)).set_duration(audio.duration)
+    video = img.set_audio(audio)
+    video.write_videofile(str(output_path), fps=24, codec="libx264", audio_codec="aac", logger=None)
+    audio.close()
+    video.close()
+
 # =============== REMINDERS ===============
 def reminder_worker():
     while True:
@@ -354,66 +314,49 @@ def reminder_worker():
             reminders = load_json(REMINDERS_FILE)
             now = time.time()
             changed = False
-
             for chat_id, items in list(reminders.items()):
                 pending = []
                 for item in items if isinstance(items, list) else []:
                     if now >= float(item.get("time", 0)):
                         try:
-                            bot.send_message(
-                                int(chat_id),
-                                "⏰ " + item.get("text", "یادآوری")
-                            )
+                            bot.send_message(int(chat_id), "⏰ " + item.get("text", "یادآوری"))
                             changed = True
                         except Exception:
                             pending.append(item)
                     else:
                         pending.append(item)
                 reminders[chat_id] = pending
-
             if changed:
                 save_json(REMINDERS_FILE, reminders)
         except Exception:
             logger.exception("Reminder worker error")
         time.sleep(10)
 
-threading.Thread(
-    target=reminder_worker, daemon=True, name="reminder-worker"
-).start()
+threading.Thread(target=reminder_worker, daemon=True, name="reminder-worker").start()
 
 @bot.message_handler(commands=["remind"])
 def reminder_command(message):
     register_user(message.from_user)
     parts = message.text.split(maxsplit=2)
-
     if len(parts) < 3:
         bot.reply_to(message, tr(message.chat.id, "remind_help"))
         return
-
     match = re.fullmatch(r"([1-9]\d{0,5})([smhd])", parts[1].lower())
     if not match:
         bot.reply_to(message, tr(message.chat.id, "remind_bad"))
         return
-
     amount = int(match.group(1))
     unit = match.group(2)
     multiplier = {"s": 1, "m": 60, "h": 3600, "d": 86400}
     seconds = amount * multiplier[unit]
-
     if seconds > 365 * 86400:
         bot.reply_to(message, tr(message.chat.id, "remind_bad"))
         return
-
     reminders = load_json(REMINDERS_FILE)
     key = str(message.chat.id)
-    reminders.setdefault(key, []).append({
-        "text": parts[2],
-        "time": time.time() + seconds
-    })
+    reminders.setdefault(key, []).append({"text": parts[2], "time": time.time() + seconds})
     save_json(REMINDERS_FILE, reminders)
-    bot.reply_to(
-        message, tr(message.chat.id, "remind_ok", when=parts[1])
-    )
+    bot.reply_to(message, tr(message.chat.id, "remind_ok", when=parts[1]))
 
 # =============== LOCK CHECK ===============
 def check_lock(chat_id, user_id):
@@ -426,30 +369,21 @@ def check_lock(chat_id, user_id):
 @bot.message_handler(commands=["start"])
 def start_command(message):
     register_user(message.from_user)
-    if not check_lock(message.chat.id, message.from_user.id):
-        return
+    if not check_lock(message.chat.id, message.from_user.id): return
     show_home(message.chat.id, message.from_user.first_name)
 
 @bot.message_handler(commands=["help"])
 def help_command(message):
     register_user(message.from_user)
-    if not check_lock(message.chat.id, message.from_user.id):
-        return
-    bot.send_message(
-        message.chat.id, tr(message.chat.id, "help"),
-        reply_markup=back_menu(message.chat.id)
-    )
+    if not check_lock(message.chat.id, message.from_user.id): return
+    bot.send_message(message.chat.id, tr(message.chat.id, "help"), reply_markup=back_menu(message.chat.id))
 
 @bot.message_handler(commands=["cancel"])
 def cancel_command(message):
-    if not check_lock(message.chat.id, message.from_user.id):
-        return
+    if not check_lock(message.chat.id, message.from_user.id): return
     user_modes.pop(str(message.chat.id), None)
     user_text.pop(str(message.chat.id), None)
-    bot.send_message(
-        message.chat.id, "✅ " + tr(message.chat.id, "back"),
-        reply_markup=main_menu(message.chat.id)
-    )
+    bot.send_message(message.chat.id, "✅ " + tr(message.chat.id, "back"), reply_markup=main_menu(message.chat.id))
     bot.send_message(message.chat.id, "👇", reply_markup=persistent_keyboard(message.chat.id))
 
 @bot.message_handler(commands=["admin"])
@@ -460,11 +394,7 @@ def admin_command(message):
     users = load_json(DB_FILE)
     reminders = load_json(REMINDERS_FILE)
     count = sum(len(x) for x in reminders.values() if isinstance(x, list))
-    bot.send_message(
-        message.chat.id,
-        tr(message.chat.id, "admin_stats",
-           users=len(users), reminders=count)
-    )
+    bot.send_message(message.chat.id, tr(message.chat.id, "admin_stats", users=len(users), reminders=count))
 
 @bot.message_handler(commands=["broadcast"])
 def broadcast_command(message):
@@ -475,31 +405,25 @@ def broadcast_command(message):
     bot.register_next_step_handler(msg, send_broadcast)
 
 def send_broadcast(message):
-    if message.from_user.id not in ADMIN_IDS:
-        return
+    if message.from_user.id not in ADMIN_IDS: return
     users = load_json(DB_FILE)
     count = 0
     for chat_id in users.keys():
         try:
             bot.send_message(chat_id, message.text)
             count += 1
-        except:
-            pass
+        except: pass
     bot.reply_to(message, tr(message.chat.id, "broadcast_done", count=count))
 
 @bot.message_handler(commands=["lock"])
 def lock_command(message):
-    if message.from_user.id not in ADMIN_IDS:
-        bot.reply_to(message, tr(message.chat.id, "admin_only"))
-        return
+    if message.from_user.id not in ADMIN_IDS: return
     save_json(MAINTENANCE_FILE, {"locked": True})
     bot.reply_to(message, tr(message.chat.id, "lock_done"))
 
 @bot.message_handler(commands=["unlock"])
 def unlock_command(message):
-    if message.from_user.id not in ADMIN_IDS:
-        bot.reply_to(message, tr(message.chat.id, "admin_only"))
-        return
+    if message.from_user.id not in ADMIN_IDS: return
     save_json(MAINTENANCE_FILE, {"locked": False})
     bot.reply_to(message, tr(message.chat.id, "unlock_done"))
 
@@ -528,112 +452,39 @@ def callback_handler(call):
     bot.answer_callback_query(call.id)
 
     if call.data != "home":
-        if not check_lock(chat_id, call.from_user.id):
-            return
+        if not check_lock(chat_id, call.from_user.id): return
 
     data = call.data
 
     if data == "home":
         show_home(chat_id, call.from_user.first_name)
         return
-
     if data == "language":
         markup = types.InlineKeyboardMarkup(row_width=2)
-        markup.row(
-            types.InlineKeyboardButton("دری / فارسی", callback_data="lang_fa"),
-            types.InlineKeyboardButton("English", callback_data="lang_en")
-        )
-        markup.row(
-            types.InlineKeyboardButton("🏠 Home", callback_data="home")
-        )
-        bot.send_message(
-            chat_id, tr(chat_id, "choose_lang"), reply_markup=markup
-        )
+        markup.row(types.InlineKeyboardButton("دری / فارسی", callback_data="lang_fa"), types.InlineKeyboardButton("English", callback_data="lang_en"))
+        markup.row(types.InlineKeyboardButton("🏠 Home", callback_data="home"))
+        bot.send_message(chat_id, tr(chat_id, "choose_lang"), reply_markup=markup)
         return
-
     if data.startswith("lang_"):
         set_language(chat_id, data.split("_", 1)[1])
         show_home(chat_id, call.from_user.first_name)
         return
-
     if data == "about":
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton(TEXT[language(chat_id)]["profile"], callback_data="profile"))
         markup.add(types.InlineKeyboardButton(tr(chat_id, "back"), callback_data="home"))
-        bot.send_message(
-            chat_id, tr(chat_id, "about_text"),
-            reply_markup=markup
-        )
+        bot.send_message(chat_id, tr(chat_id, "about_text"), reply_markup=markup)
         return
-
     if data == "profile":
         db = load_json(DB_FILE)
         record = db.get(str(chat_id), {})
         reminders = load_json(REMINDERS_FILE).get(str(chat_id), [])
-        bot.send_message(
-            chat_id,
-            tr(
-                chat_id, "profile_text",
-                name=call.from_user.first_name or "—",
-                id=chat_id,
-                lang=language(chat_id),
-                joined=record.get("joined", "—"),
-                reminders=len(reminders)
-            ),
-            reply_markup=back_menu(chat_id)
-        )
+        bot.send_message(chat_id, tr(chat_id, "profile_text", name=call.from_user.first_name or "—", id=chat_id, lang=language(chat_id), joined=record.get("joined", "—"), reminders=len(reminders)), reply_markup=back_menu(chat_id))
         return
-
     if data == "date":
-        now = datetime.datetime.now(
-            datetime.timezone(datetime.timedelta(hours=4, minutes=30))
-        )
-        shamsi = jdatetime.datetime.fromgregorian(
-            datetime=now.replace(tzinfo=None)
-        )
-        bot.send_message(
-            chat_id,
-            f"📅 تاریخ افغانستان\n\n"
-            f"شمسی: {shamsi.strftime('%Y/%m/%d')}\n"
-            f"میلادی: {now.strftime('%Y-%m-%d')}\n"
-            f"ساعت: {now.strftime('%H:%M:%S')}\n"
-            f"روز: {shamsi.strftime('%A')}",
-            reply_markup=back_menu(chat_id)
-        )
-        return
-
-    if data == "speed_test":
-        msg = bot.send_message(chat_id, tr(chat_id, "speed_test_start"))
-        try:
-            st = speedtest.Speedtest()
-            st.get_best_server()
-            download = st.download() / 1_000_000
-            upload = st.upload() / 1_000_000
-            ping = st.results.ping
-            bot.edit_message_text(
-                tr(chat_id, "speed_test_result", download=f"{download:.2f}", upload=f"{upload:.2f}", ping=f"{ping:.0f}"),
-                chat_id, msg.message_id, reply_markup=back_menu(chat_id)
-            )
-        except Exception as e:
-            logger.exception("Speed test error")
-            bot.edit_message_text(tr(chat_id, "error"), chat_id, msg.message_id)
-        return
-
-    if data == "device_info":
-        try:
-            model = platform.model if hasattr(platform, 'model') else platform.machine()
-            system = f"{platform.system()} {platform.release()}"
-            processor = platform.processor()
-            ram = f"{psutil.virtual_memory().total / (1024**3):.1f} GB"
-            storage = f"{psutil.disk_usage('/').free / (1024**3):.1f} GB free"
-            bot.send_message(
-                chat_id,
-                tr(chat_id, "device_info_result", model=model, system=system, processor=processor, ram=ram, storage=storage),
-                reply_markup=back_menu(chat_id)
-            )
-        except Exception as e:
-            logger.exception("Device info error")
-            bot.send_message(chat_id, tr(chat_id, "error"), reply_markup=back_menu(chat_id))
+        now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=4, minutes=30)))
+        shamsi = jdatetime.datetime.fromgregorian(datetime=now.replace(tzinfo=None))
+        bot.send_message(chat_id, f"📅 تاریخ افغانستان\n\nشمسی: {shamsi.strftime('%Y/%m/%d')}\nمیلادی: {now.strftime('%Y-%m-%d')}\nساعت: {now.strftime('%H:%M:%S')}\nروز: {shamsi.strftime('%A')}", reply_markup=back_menu(chat_id))
         return
 
     modes = {
@@ -642,13 +493,12 @@ def callback_handler(call):
         "pdf_to_text": "prompt_pdf_text",
         "qr": "prompt_qr",
         "translate": "prompt_translate",
+        "ai_assistant": "prompt_ai",
+        "video_maker": "prompt_video"
     }
     if data in modes:
         user_modes[str(chat_id)] = data
-        bot.send_message(
-            chat_id, tr(chat_id, modes[data]),
-            reply_markup=back_menu(chat_id)
-        )
+        bot.send_message(chat_id, tr(chat_id, modes[data]), reply_markup=back_menu(chat_id))
         return
 
     if data in {"do_qr", "do_translate", "do_pdf"}:
@@ -656,21 +506,17 @@ def callback_handler(call):
         if not text:
             bot.send_message(chat_id, tr(chat_id, "error"))
             return
-
         if data == "do_qr":
             with tempfile.TemporaryDirectory() as td:
                 path = Path(td) / "qr.png"
                 qrcode.make(text).save(path)
-                with path.open("rb") as f:
-                    bot.send_photo(chat_id, f, caption=tr(chat_id, "done"))
+                with path.open("rb") as f: bot.send_photo(chat_id, f, caption=tr(chat_id, "done"))
             ask_rating(chat_id)
         elif data == "do_translate":
             try:
                 dest = "fa" if language(chat_id) == "fa" else "en"
                 result = Translator().translate(text, dest=dest)
-                bot.send_message(
-                    chat_id, tr(chat_id, "translated", result=result.text)
-                )
+                bot.send_message(chat_id, tr(chat_id, "translated", result=result.text))
                 ask_rating(chat_id)
             except Exception:
                 logger.exception("Translation error")
@@ -680,8 +526,7 @@ def callback_handler(call):
                 with tempfile.TemporaryDirectory() as td:
                     path = Path(td) / "text.pdf"
                     make_pdf(text, path)
-                    with path.open("rb") as f:
-                        bot.send_document(chat_id, f, caption=tr(chat_id, "done"))
+                    with path.open("rb") as f: bot.send_document(chat_id, f, caption=tr(chat_id, "done"))
                 ask_rating(chat_id)
             except Exception:
                 logger.exception("Text to PDF error")
@@ -689,28 +534,19 @@ def callback_handler(call):
         return
 
 # =============== TEXT HANDLER ===============
-@bot.message_handler(
-    func=lambda m: bool(m.text) and not m.text.startswith("/")
-)
+@bot.message_handler(func=lambda m: bool(m.text) and not m.text.startswith("/"))
 def text_handler(message):
     chat_id = message.chat.id
     register_user(message.from_user)
-    
-    if not check_lock(chat_id, message.from_user.id):
-        return
-
+    if not check_lock(chat_id, message.from_user.id): return
     mode = user_modes.get(str(chat_id))
     text = message.text
 
     if text in {"🏠 خانه", "🏠 Home", "Start", "شروع"}:
         show_home(chat_id, message.from_user.first_name)
         return
-
     if text in {"ℹ️ راهنما", "ℹ️ Help", "راهنما", "Help"}:
-        bot.send_message(
-            chat_id, tr(chat_id, "help"),
-            reply_markup=back_menu(chat_id)
-        )
+        bot.send_message(chat_id, tr(chat_id, "help"), reply_markup=back_menu(chat_id))
         return
 
     if mode == "qr":
@@ -718,10 +554,7 @@ def text_handler(message):
             path = Path(td) / "qr.png"
             qrcode.make(text).save(path)
             with path.open("rb") as f:
-                bot.send_photo(
-                    chat_id, f, caption=tr(chat_id, "done"),
-                    reply_markup=back_menu(chat_id)
-                )
+                bot.send_photo(chat_id, f, caption=tr(chat_id, "done"), reply_markup=back_menu(chat_id))
         user_modes.pop(str(chat_id), None)
         ask_rating(chat_id)
         return
@@ -730,10 +563,7 @@ def text_handler(message):
         try:
             dest = "fa" if language(chat_id) == "fa" else "en"
             result = Translator().translate(text, dest=dest)
-            bot.send_message(
-                chat_id, tr(chat_id, "translated", result=result.text),
-                reply_markup=back_menu(chat_id)
-            )
+            bot.send_message(chat_id, tr(chat_id, "translated", result=result.text), reply_markup=back_menu(chat_id))
             ask_rating(chat_id)
         except Exception:
             logger.exception("Translation error")
@@ -747,10 +577,7 @@ def text_handler(message):
                 path = Path(td) / "text.pdf"
                 make_pdf(text, path)
                 with path.open("rb") as f:
-                    bot.send_document(
-                        chat_id, f, caption=tr(chat_id, "done"),
-                        reply_markup=back_menu(chat_id)
-                    )
+                    bot.send_document(chat_id, f, caption=tr(chat_id, "done"), reply_markup=back_menu(chat_id))
             ask_rating(chat_id)
         except Exception:
             logger.exception("Text to PDF error")
@@ -758,19 +585,28 @@ def text_handler(message):
         user_modes.pop(str(chat_id), None)
         return
 
+    if mode == "ai_assistant":
+        try:
+            response = requests.post(
+                "https://text.pollinations.ai/",
+                json={"messages": [{"role": "user", "content": text}]},
+                timeout=30
+            )
+            answer = response.text
+            bot.send_message(chat_id, f"🤖 پاسخ هوش مصنوعی:\n\n{answer}", reply_markup=back_menu(chat_id))
+        except Exception:
+            logger.exception("AI error")
+            bot.send_message(chat_id, tr(chat_id, "error"), reply_markup=back_menu(chat_id))
+        user_modes.pop(str(chat_id), None)
+        return
+
     user_text[str(chat_id)] = text
     markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.row(types.InlineKeyboardButton(
-        tr(chat_id, "opt_qr"), callback_data="do_qr"))
-    markup.row(types.InlineKeyboardButton(
-        tr(chat_id, "opt_translate"), callback_data="do_translate"))
-    markup.row(types.InlineKeyboardButton(
-        tr(chat_id, "opt_pdf"), callback_data="do_pdf"))
-    markup.row(types.InlineKeyboardButton(
-        tr(chat_id, "back"), callback_data="home"))
-    bot.send_message(
-        chat_id, tr(chat_id, "text_options"), reply_markup=markup
-    )
+    markup.row(types.InlineKeyboardButton(tr(chat_id, "opt_qr"), callback_data="do_qr"))
+    markup.row(types.InlineKeyboardButton(tr(chat_id, "opt_translate"), callback_data="do_translate"))
+    markup.row(types.InlineKeyboardButton(tr(chat_id, "opt_pdf"), callback_data="do_pdf"))
+    markup.row(types.InlineKeyboardButton(tr(chat_id, "back"), callback_data="home"))
+    bot.send_message(chat_id, tr(chat_id, "text_options"), reply_markup=markup)
 
 # =============== MEDIA HANDLER ===============
 def get_file_bytes(file_id):
@@ -782,29 +618,53 @@ def get_file_bytes(file_id):
         raise ValueError("too_large")
     return data
 
-@bot.message_handler(content_types=["photo", "document"])
+@bot.message_handler(content_types=["photo", "document", "audio"])
 def media_handler(message):
     chat_id = message.chat.id
     register_user(message.from_user)
-    
-    if not check_lock(chat_id, message.from_user.id):
-        return
+    if not check_lock(chat_id, message.from_user.id): return
 
     mode = user_modes.get(str(chat_id))
-
     is_photo = message.content_type == "photo"
-    is_pdf = (
-        message.content_type == "document"
-        and (
-            (message.document.mime_type or "") == "application/pdf"
-            or (message.document.file_name or "").lower().endswith(".pdf")
-        )
-    )
+    is_audio = message.content_type == "audio"
+    is_pdf = (message.content_type == "document" and ((message.document.mime_type or "") == "application/pdf" or (message.document.file_name or "").lower().endswith(".pdf")))
 
     try:
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)
 
+            # --- VIDEO MAKER ---
+            if mode == "video_maker":
+                if is_photo:
+                    # ذخیره عکس
+                    raw = get_file_bytes(message.photo[-1].file_id)
+                    img_path = td / "input.jpg"
+                    img_path.write_bytes(raw)
+                    user_text[f"video_{chat_id}_img"] = raw
+                    bot.send_message(chat_id, "✅ عکس دریافت شد. حالا یک آهنگ (Audio) بفرستید.", reply_markup=back_menu(chat_id))
+                    return
+                elif is_audio:
+                    img_raw = user_text.get(f"video_{chat_id}_img")
+                    if not img_raw:
+                        bot.send_message(chat_id, "❌ اول باید یک عکس بفرستید.", reply_markup=back_menu(chat_id))
+                        return
+                    msg = bot.send_message(chat_id, tr(chat_id, "processing"))
+                    audio_raw = get_file_bytes(message.audio.file_id)
+                    img_path = td / "image.jpg"
+                    audio_path = td / "audio.mp3"
+                    video_path = td / "output.mp4"
+                    img_path.write_bytes(img_raw)
+                    audio_path.write_bytes(audio_raw)
+                    make_video(img_path, audio_path, video_path)
+                    with video_path.open("rb") as f:
+                        bot.send_video(chat_id, f, caption=tr(chat_id, "done"), reply_markup=back_menu(chat_id))
+                    bot.delete_message(chat_id, msg.message_id)
+                    user_modes.pop(str(chat_id), None)
+                    user_text.pop(f"video_{chat_id}_img", None)
+                    ask_rating(chat_id)
+                    return
+
+            # --- IMG TO PDF ---
             if is_photo and mode == "img_to_pdf":
                 raw = get_file_bytes(message.photo[-1].file_id)
                 source = td / "input.jpg"
@@ -814,14 +674,12 @@ def media_handler(message):
                     img = ImageOps.exif_transpose(img).convert("RGB")
                     img.save(output, "PDF", resolution=150)
                 with output.open("rb") as f:
-                    bot.send_document(
-                        chat_id, f, caption=tr(chat_id, "done"),
-                        reply_markup=back_menu(chat_id)
-                    )
+                    bot.send_document(chat_id, f, caption=tr(chat_id, "done"), reply_markup=back_menu(chat_id))
                 user_modes.pop(str(chat_id), None)
                 ask_rating(chat_id)
                 return
 
+            # --- PDF TO TEXT ---
             if is_pdf and mode == "pdf_to_text":
                 raw = get_file_bytes(message.document.file_id)
                 source = td / "input.pdf"
@@ -829,38 +687,23 @@ def media_handler(message):
                 source.write_bytes(raw)
                 with source.open("rb") as f:
                     reader = PyPDF2.PdfReader(f)
-                    extracted = "\n\n".join(
-                        page.extract_text() or "" for page in reader.pages
-                    )
+                    extracted = "\n\n".join(page.extract_text() or "" for page in reader.pages)
                 if not extracted.strip():
-                    bot.send_message(
-                        chat_id, tr(chat_id, "no_pdf_text"),
-                        reply_markup=back_menu(chat_id)
-                    )
+                    bot.send_message(chat_id, tr(chat_id, "no_pdf_text"), reply_markup=back_menu(chat_id))
                 else:
                     output.write_text(extracted, encoding="utf-8")
                     with output.open("rb") as f:
-                        bot.send_document(
-                            chat_id, f, caption=tr(chat_id, "done"),
-                            reply_markup=back_menu(chat_id)
-                        )
+                        bot.send_document(chat_id, f, caption=tr(chat_id, "done"), reply_markup=back_menu(chat_id))
                 user_modes.pop(str(chat_id), None)
                 ask_rating(chat_id)
                 return
 
-        bot.send_message(
-            chat_id, tr(chat_id, "bad_file"),
-            reply_markup=back_menu(chat_id)
-        )
-
+        bot.send_message(chat_id, tr(chat_id, "bad_file"), reply_markup=back_menu(chat_id))
     except ValueError:
         bot.send_message(chat_id, tr(chat_id, "too_large"))
     except Exception:
         logger.exception("Media processing error")
-        bot.send_message(
-            chat_id, tr(chat_id, "error"),
-            reply_markup=back_menu(chat_id)
-        )
+        bot.send_message(chat_id, tr(chat_id, "error"), reply_markup=back_menu(chat_id))
 
 # =============== START BOT ===============
 if __name__ == "__main__":

@@ -11,20 +11,26 @@ jobs:
   run-bot:
     runs-on: ubuntu-latest
     timeout-minutes: 355
+    concurrency:
+      group: nexora-bot
+      cancel-in-progress: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      - name: Install dependencies
+          
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu
+          
+      - name: Install Python dependencies
         run: pip install -r requirements.txt
-      
-      # 👇 این دو خط برای نصب فونت فارسی (Unicode) اضافه شد
-      - name: Install Unicode font
-        run: sudo apt-get update && sudo apt-get install -y fonts-dejavu
-      
+        
       - name: Run bot
         env:
           TOKEN: ${{ secrets.TOKEN }}
