@@ -58,7 +58,6 @@ TEXT = {
         "qr": "📱 ساخت QR",
         "translate": "🌐 ترجمه متن",
         "date": "📅 تاریخ و ساعت",
-        "video_maker": "🎬 ساخت ویدیو",
         "about": "ℹ️ درباره ربات",
         "profile": "👤 پروفایل من",
         "prompt_img_pdf": "🖼️ عکس خود را بفرست تا به PDF تبدیل کنم.",
@@ -79,7 +78,7 @@ TEXT = {
         "back": "🔙 بازگشت به منو",
         "choose_lang": "زبان را انتخاب کن:",
         "help": "📖 راهنمای NEXORA BOT\n\n۱. از منو یک ابزار انتخاب کن.\n۲. متن یا فایل مورد نیاز را بفرست.\n۳. برای بازگشت از دکمه خانه استفاده کن.\n\nلغو عملیات: /cancel",
-        "about_text": "✨ NEXORA BOT\nنسخه 8.0\nابزارهای فایل، هوش مصنوعی، ساخت ویدیو، QR، ترجمه، یادآوری.",
+        "about_text": "✨ NEXORA BOT\nنسخه 8.0\nابزارهای فایل، هوش مصنوعی، QR، ترجمه، یادآوری.",
         "remind_help": "فرمت یادآوری:\n/remind 10m متن یادآوری\n\nواحدها: s ثانیه، m دقیقه، h ساعت، d روز",
         "remind_bad": "❌ فرمت اشتباه است. مثال: /remind 10m تماس بگیر",
         "remind_ok": "✅ یادآوری برای {when} دیگر تنظیم شد.",
@@ -94,8 +93,7 @@ TEXT = {
         "broadcast_prompt": "📢 لطفاً پیام خود را برای ارسال همگانی بنویسید:",
         "broadcast_done": "✅ پیام شما به {count} کاربر ارسال شد.",
         "lock_done": "🔒 ربات قفل شد (حالت تعمیر).",
-        "unlock_done": "🔓 ربات از حالت تعمیر خارج شد.",
-        "video_disabled": "🎬 بخش ساخت ویدیو موقتاً به دلیل محدودیت سرور غیرفعال است."
+        "unlock_done": "🔓 ربات از حالت تعمیر خارج شد."
     },
     "en": {
         "welcome": "✨ Hello {name}!\n\nWelcome to NEXORA BOT.\nYour digital toolbox for everyday tasks.\n\nChoose a tool:",
@@ -110,7 +108,6 @@ TEXT = {
         "qr": "📱 Create QR",
         "translate": "🌐 Translate Text",
         "date": "📅 Date & Time",
-        "video_maker": "🎬 Video Maker",
         "about": "ℹ️ About Bot",
         "profile": "👤 My Profile",
         "prompt_img_pdf": "🖼️ Send an image to convert to PDF.",
@@ -131,7 +128,7 @@ TEXT = {
         "back": "🔙 Back to menu",
         "choose_lang": "Choose your language:",
         "help": "📖 NEXORA BOT Help\n\n1. Choose a tool from the menu.\n2. Send the requested text or file.\nCancel current operation: /cancel",
-        "about_text": "✨ NEXORA BOT\nVersion 8.0\nFile tools, AI, Video Maker, QR, translation, reminders.",
+        "about_text": "✨ NEXORA BOT\nVersion 8.0\nFile tools, AI, QR, translation, reminders.",
         "remind_help": "Reminder format:\n/remind 10m reminder text\nUnits: s seconds, m minutes, h hours, d days",
         "remind_bad": "❌ Invalid format. Example: /remind 10m Call back",
         "remind_ok": "✅ Reminder set for {when} from now.",
@@ -146,8 +143,7 @@ TEXT = {
         "broadcast_prompt": "📢 Please enter your broadcast message:",
         "broadcast_done": "✅ Message sent to {count} users.",
         "lock_done": "🔒 Bot locked (maintenance mode).",
-        "unlock_done": "🔓 Bot unlocked.",
-        "video_disabled": "🎬 Video Maker is temporarily disabled due to server limits."
+        "unlock_done": "🔓 Bot unlocked."
     },
 }
 
@@ -224,8 +220,7 @@ def main_menu(chat_id):
         types.InlineKeyboardButton(labels["translate"], callback_data="translate")
     )
     markup.row(
-        types.InlineKeyboardButton(labels["date"], callback_data="date"),
-        types.InlineKeyboardButton(labels["video_maker"], callback_data="video_maker")
+        types.InlineKeyboardButton(labels["date"], callback_data="date")
     )
     markup.row(
         types.InlineKeyboardButton(labels["language"], callback_data="language"),
@@ -475,11 +470,6 @@ def callback_handler(call):
         bot.send_message(chat_id, f"📅 تاریخ افغانستان\n\nشمسی: {shamsi.strftime('%Y/%m/%d')}\nمیلادی: {now.strftime('%Y-%m-%d')}\nساعت: {now.strftime('%H:%M:%S')}\nروز: {shamsi.strftime('%A')}", reply_markup=back_menu(chat_id))
         return
 
-    # غیرفعال کردن موقت ساخت ویدیو
-    if data == "video_maker":
-        bot.send_message(chat_id, tr(chat_id, "video_disabled"), reply_markup=back_menu(chat_id))
-        return
-
     modes = {
         "img_to_pdf": "prompt_img_pdf",
         "text_to_pdf": "prompt_text_pdf",
@@ -577,11 +567,15 @@ def text_handler(message):
         user_modes.pop(str(chat_id), None)
         return
 
+    # پاسخ هوشمندانه تر و بدون جک مسخره
     if mode == "ai_assistant":
         try:
             response = requests.post(
                 "https://text.pollinations.ai/",
-                json={"messages": [{"role": "user", "content": text}]},
+                json={"messages": [
+                    {"role": "system", "content": "You are a helpful, smart, and serious AI assistant. Answer clearly and accurately in the user's language."},
+                    {"role": "user", "content": text}
+                ]},
                 timeout=30
             )
             answer = response.text
@@ -623,7 +617,6 @@ def media_handler(message):
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)
 
-            # --- IMG TO PDF ---
             if is_photo and mode == "img_to_pdf":
                 raw = get_file_bytes(message.photo[-1].file_id)
                 source = td / "input.jpg"
@@ -638,7 +631,6 @@ def media_handler(message):
                 ask_rating(chat_id)
                 return
 
-            # --- PDF TO TEXT ---
             if is_pdf and mode == "pdf_to_text":
                 raw = get_file_bytes(message.document.file_id)
                 source = td / "input.pdf"
