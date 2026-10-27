@@ -764,4 +764,15 @@ def media_handler(message):
 # =============== START BOT ===============
 if __name__ == "__main__":
     logger.info("%s is starting...", BOT_NAME)
+    
+    # تنظیم منوی دستورات گوشه کیبورد
+    try:
+        bot.set_my_commands([
+            types.BotCommand("start", "شروع ربات / Start Bot"),
+            types.BotCommand("panel", "پنل مدیریت / Admin Panel"),
+            types.BotCommand("language", "تغییر زبان / Change Language")
+        ])
+    except Exception as e:
+        logger.error(f"Failed to set commands: {e}")
+
     bot.infinity_polling(skip_pending=True, timeout=30, long_polling_timeout=30)
