@@ -1,5 +1,3 @@
-
-
 import os
 import re
 import json
@@ -21,7 +19,7 @@ from fpdf import FPDF
 from googletrans import Translator
 import jdatetime
 import requests
-from moviepy.editor import ImageClip, AudioFileClip
+from moviepy import ImageClip, AudioFileClip
 
 # =============== NEXORA BOT CONFIG ===============
 TOKEN = os.getenv("TOKEN", "").strip()
@@ -69,7 +67,7 @@ TEXT = {
         "prompt_pdf_text": "📄 فایل PDF خود را بفرست.",
         "prompt_qr": "📱 متن یا لینک را بفرست تا QR بسازم.",
         "prompt_translate": "🌐 متن خود را برای ترجمه بفرست.",
-        "prompt_ai": "🤖 لطفاً سوال خود را بنویسید تا هوش مصنوعی پاسخ دهد.",
+        "prompt_ai": "🤖 لطفاً سوال خود را بنویسید تا هوش مصنوعی پاسخ دهد. (برای خروج روی بازگشت به منو بزنید)",
         "prompt_video": "🎬 لطفاً یک عکس و سپس یک آهنگ بفرستید تا ویدیو بسازم (عکس را اول بفرستید).",
         "processing": "⏳ در حال پردازش؛ لطفاً صبر کن.",
         "done": "✅ عملیات با موفقیت انجام شد.",
@@ -121,7 +119,7 @@ TEXT = {
         "prompt_pdf_text": "📄 Send a PDF file.",
         "prompt_qr": "📱 Send text or a link to create a QR code.",
         "prompt_translate": "🌐 Send text to translate.",
-        "prompt_ai": "🤖 Please type your question for the AI.",
+        "prompt_ai": "🤖 Please type your question for the AI. (Click Back to Menu to exit)",
         "prompt_video": "🎬 Please send an image first, then an audio file to create a video.",
         "processing": "⏳ Processing. Please wait.",
         "done": "✅ Completed successfully.",
@@ -585,6 +583,7 @@ def text_handler(message):
         user_modes.pop(str(chat_id), None)
         return
 
+    # بخش اصلاح شده هوش مصنوعی (چت مداوم)
     if mode == "ai_assistant":
         try:
             response = requests.post(
@@ -597,8 +596,7 @@ def text_handler(message):
         except Exception:
             logger.exception("AI error")
             bot.send_message(chat_id, tr(chat_id, "error"), reply_markup=back_menu(chat_id))
-        user_modes.pop(str(chat_id), None)
-        return
+        return  # <- اینجا دیگه user_modes رو پاک نمیکنیم تا چت ادامه پیدا کنه
 
     user_text[str(chat_id)] = text
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -636,10 +634,7 @@ def media_handler(message):
             # --- VIDEO MAKER ---
             if mode == "video_maker":
                 if is_photo:
-                    # ذخیره عکس
                     raw = get_file_bytes(message.photo[-1].file_id)
-                    img_path = td / "input.jpg"
-                    img_path.write_bytes(raw)
                     user_text[f"video_{chat_id}_img"] = raw
                     bot.send_message(chat_id, "✅ عکس دریافت شد. حالا یک آهنگ (Audio) بفرستید.", reply_markup=back_menu(chat_id))
                     return
