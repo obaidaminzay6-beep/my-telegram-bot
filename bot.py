@@ -22,9 +22,9 @@ TOKEN = os.getenv("TOKEN", "").strip()
 if not TOKEN:
     raise RuntimeError("TOKEN is missing.")
 
-BOT_NAME = "NEXORA BOT v9.0"
+BOT_NAME = "NEXORA BOT v9.5"
 SUPPORT_LINK = os.getenv("SUPPORT_LINK", "https://t.me/DarkVenom404")
-ADMIN_IDS = {7210433916}  # آیدی عددی ادمین
+ADMIN_IDS = {7210433916}
 
 DB_FILE = Path("user_data.json")
 REMINDERS_FILE = Path("reminders.json")
@@ -39,13 +39,13 @@ bot = telebot.TeleBot(TOKEN, threaded=True)
 lock = threading.RLock()
 user_modes = {}
 user_text = {}
-admin_broadcast_mode = set() # برای تشخیص اینکه ادمین در حال ارسال پیام همگانی است
+admin_broadcast_mode = set()
 
 # =============== LANGUAGE TEXTS ===============
 TEXT = {
     "fa": {
         "choose_lang": "🌍 لطفاً زبان خود را انتخاب کنید:",
-        "welcome": "✨ سلام {name} عزیز!\n\nبه NEXORA BOT خوش آمدی.\nجعبه‌ابزار دیجیتالی تو برای کارهای روزمره.\n\nیکی از ابزارهای زیر را انتخاب کن:",
+        "welcome": "✨ **سلام {name} عزیز!**\n\nبه **NEXORA BOT** خوش آمدی. 👋\nمن جعبه‌ابزار دیجیتال همه‌کاره تو هستم!\n\n⚡️ **ابزارهای من:**\n📄 مدیریت فایل‌های PDF\n🤖 هوش مصنوعی و ترجمه\n⏰ یادآور هوشمند و تقویم\n\n👇 **برای شروع، یکی از گزینه‌های زیر را انتخاب کن:**",
         "language": "🌍 تغییر زبان",
         "support": "💬 پشتیبانی",
         "img_pdf": "🖼️ عکس به PDF",
@@ -60,7 +60,7 @@ TEXT = {
         "prompt_text_pdf": "📝 متن خود را بفرست تا به PDF تبدیل کنم.",
         "prompt_pdf_text": "📄 فایل PDF خود را بفرست.",
         "prompt_translate": "🌐 متن خود را برای ترجمه بفرست.",
-        "prompt_ai": "🤖 لطفاً سوال خود را بنویسید (یا متنی برای ترجمه بفرستید).\n(برای خروج روی بازگشت به منو بزنید)",
+        "prompt_ai": "🤖 لطفاً سوال خود را بنویسید.\n(برای خروج روی بازگشت به منو بزنید)",
         "processing": "⏳ در حال پردازش؛ لطفاً صبر کن.",
         "done": "✅ عملیات با موفقیت انجام شد.",
         "error": "❌ عملیات انجام نشد. دوباره امتحان کن.",
@@ -70,8 +70,8 @@ TEXT = {
         "opt_translate": "🌐 ترجمه",
         "opt_pdf": "📝 تبدیل به PDF",
         "back": "🔙 بازگشت به منو",
-        "help": "📖 راهنمای NEXORA BOT\n\n۱. از منو یک ابزار انتخاب کن.\n۲. متن یا فایل مورد نیاز را بفرست.\n۳. برای بازگشت از دکمه خانه استفاده کن.\n\nلغو عملیات: /cancel",
-        "about_text": "✨ NEXORA BOT\nنسخه 9.0\nابزارهای فایل، هوش مصنوعی، ترجمه و یادآوری.",
+        "help": "📖 راهنمای NEXORA BOT\n\n۱. از منو یک ابزار انتخاب کن.\n۲. متن یا فایل مورد نیاز را بفرست.\n۳. برای بازگشت از دکمه خانه استفاده کن.",
+        "about_text": "✨ **NEXORA BOT**\nنسخه 9.5\nجعبه‌ابزار دیجیتال شما.\n\n👨‍💻 توسعه‌دهنده: @DarkVenom404",
         "remind_help": "فرمت یادآوری:\n/remind 10m متن یادآوری\n\nواحدها: s ثانیه، m دقیقه، h ساعت، d روز",
         "remind_bad": "❌ فرمت اشتباه است. مثال: /remind 10m تماس بگیر",
         "remind_ok": "✅ یادآوری برای {when} دیگر تنظیم شد.",
@@ -101,7 +101,7 @@ TEXT = {
     },
     "en": {
         "choose_lang": "🌍 Please choose your language:",
-        "welcome": "✨ Hello {name}!\n\nWelcome to NEXORA BOT.\nYour digital toolbox for everyday tasks.\n\nChoose a tool:",
+        "welcome": "✨ **Hello {name}!**\n\nWelcome to **NEXORA BOT**. 👋\nI am your all-in-one digital toolkit!\n\n⚡️ **My Tools:**\n📄 PDF Management\n🤖 AI & Translation\n⏰ Smart Reminders & Calendar\n\n👇 **Select an option below to start:**",
         "language": "🌍 Change language",
         "support": "💬 Support",
         "img_pdf": "🖼️ Image to PDF",
@@ -116,7 +116,7 @@ TEXT = {
         "prompt_text_pdf": "📝 Send text to convert to PDF.",
         "prompt_pdf_text": "📄 Send a PDF file.",
         "prompt_translate": "🌐 Send text to translate.",
-        "prompt_ai": "🤖 Please type your question (or send text for translation).\n(Click Back to Menu to exit)",
+        "prompt_ai": "🤖 Please type your question.\n(Click Back to Menu to exit)",
         "processing": "⏳ Processing. Please wait.",
         "done": "✅ Completed successfully.",
         "error": "❌ Operation failed. Please try again.",
@@ -126,9 +126,9 @@ TEXT = {
         "opt_translate": "🌐 Translate",
         "opt_pdf": "📝 Convert to PDF",
         "back": "🔙 Back to menu",
-        "help": "📖 NEXORA BOT Help\n\n1. Choose a tool from the menu.\n2. Send the requested text or file.\nCancel current operation: /cancel",
-        "about_text": "✨ NEXORA BOT\nVersion 9.0\nFile tools, AI, translation and reminders.",
-        "remind_help": "Reminder format:\n/remind 10m reminder text\nUnits: s seconds, m minutes, h hours, d days",
+        "help": "📖 NEXORA BOT Help\n\n1. Choose a tool from the menu.\n2. Send the requested text or file.",
+        "about_text": "✨ **NEXORA BOT**\nVersion 9.5\nYour digital toolkit.\n\n👨‍💻 Developer: @DarkVenom404",
+        "remind_help": "Reminder format:\n/remind 10m reminder text",
         "remind_bad": "❌ Invalid format. Example: /remind 10m Call back",
         "remind_ok": "✅ Reminder set for {when} from now.",
         "profile_text": "👤 Your Profile\n\nName: {name}\nID: {id}\nLanguage: {lang}\nJoined: {joined}\nActive reminders: {reminders}",
@@ -195,7 +195,7 @@ def register_user(user):
         db[key] = {
             "joined": datetime.datetime.now().strftime("%Y-%m-%d"),
             "first_name": user.first_name or "",
-            "lang": "fa",  # زبان پیش‌فرض
+            "lang": "fa",
             "approved": False if user.id not in ADMIN_IDS else True
         }
         save_json(DB_FILE, db)
@@ -237,22 +237,27 @@ def main_menu(chat_id):
     labels = TEXT[language(chat_id)]
     markup = types.InlineKeyboardMarkup(row_width=2)
 
+    # ردیف اول: ابزارهای فایل
     markup.row(
         types.InlineKeyboardButton(labels["img_pdf"], callback_data="img_to_pdf"),
         types.InlineKeyboardButton(labels["text_pdf"], callback_data="text_to_pdf")
     )
+    # ردیف دوم: ابزارهای متن
     markup.row(
         types.InlineKeyboardButton(labels["pdf_text"], callback_data="pdf_to_text"),
-        types.InlineKeyboardButton(labels["ai_assistant"], callback_data="ai_assistant")
+        types.InlineKeyboardButton(labels["translate"], callback_data="translate")
     )
+    # ردیف سوم: ابزارهای هوشمند
     markup.row(
-        types.InlineKeyboardButton(labels["translate"], callback_data="translate"),
+        types.InlineKeyboardButton(labels["ai_assistant"], callback_data="ai_assistant"),
         types.InlineKeyboardButton(labels["date"], callback_data="date")
     )
+    # ردیف چهارم: تنظیمات
     markup.row(
         types.InlineKeyboardButton(labels["language"], callback_data="language"),
         types.InlineKeyboardButton(labels["support"], url=SUPPORT_LINK)
     )
+    # ردیف پنجم: درباره
     markup.row(
         types.InlineKeyboardButton(labels["about"], callback_data="about")
     )
@@ -269,7 +274,8 @@ def show_home(chat_id, name=""):
     bot.send_message(
         chat_id,
         tr(chat_id, "welcome", name=name or "دوست عزیز"),
-        reply_markup=main_menu(chat_id)
+        reply_markup=main_menu(chat_id),
+        parse_mode="Markdown"
     )
 
 # =============== PDF SUPPORT ===============
@@ -446,7 +452,7 @@ def send_broadcast(message):
         try:
             bot.send_message(chat_id, message.text)
             count += 1
-            time.sleep(0.05) # تاخیر برای جلوگیری از بلاک شدن توسط تلگرام
+            time.sleep(0.05)
         except Exception:
             pass
     bot.reply_to(message, tr(message.chat.id, "broadcast_done", count=count))
@@ -476,7 +482,6 @@ def callback_handler(call):
     register_user(user)
     bot.answer_callback_query(call.id)
 
-    # --- APPROVAL SYSTEM ---
     if call.data.startswith("approve_") and user.id in ADMIN_IDS:
         uid = call.data.split("_")[1]
         db = load_json(DB_FILE)
@@ -498,7 +503,6 @@ def callback_handler(call):
             bot.edit_message_text(f"❌ User {uid} rejected.", chat_id, call.message.message_id)
         return
 
-    # --- SET LANGUAGE ---
     if call.data.startswith("setlang_"):
         lang = call.data.split("_")[1]
         set_language(chat_id, lang)
@@ -516,7 +520,6 @@ def callback_handler(call):
 
     data = call.data
 
-    # --- ADMIN PANEL CALLBACKS ---
     if data == "admin_broadcast" and user.id in ADMIN_IDS:
         admin_broadcast_mode.add(user.id)
         bot.send_message(chat_id, tr(chat_id, "broadcast_prompt"))
@@ -548,7 +551,7 @@ def callback_handler(call):
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton(TEXT[language(chat_id)]["profile"], callback_data="profile"))
         markup.add(types.InlineKeyboardButton(tr(chat_id, "back"), callback_data="home"))
-        bot.send_message(chat_id, tr(chat_id, "about_text"), reply_markup=markup)
+        bot.send_message(chat_id, tr(chat_id, "about_text"), reply_markup=markup, parse_mode="Markdown")
         return
     if data == "profile":
         db = load_json(DB_FILE)
@@ -605,7 +608,6 @@ def text_handler(message):
     user_id = message.from_user.id
     register_user(message.from_user)
     
-    # بررسی اگر ادمین در حال ارسال پیام همگانی است
     if user_id in admin_broadcast_mode:
         send_broadcast(message)
         return
@@ -752,14 +754,12 @@ def media_handler(message):
 if __name__ == "__main__":
     logger.info("%s is starting...", BOT_NAME)
     
-    # تنظیم منوی دستورات گوشه کیبورد (فقط برای ادمین /panel نمایش داده می‌شود)
     try:
         bot.set_my_commands([
             types.BotCommand("start", "شروع ربات / Start Bot"),
             types.BotCommand("language", "تغییر زبان / Change Language")
         ])
         
-        # برای ادمین، دستور /panel به صورت جداگانه ثبت می‌شود
         for admin_id in ADMIN_IDS:
             try:
                 bot.set_my_commands([
