@@ -47,8 +47,6 @@ TEXT = {
         "welcome": "✨ سلام {name} عزیز!\n\nبه NEXORA BOT خوش آمدی.\nجعبه‌ابزار دیجیتالی تو برای کارهای روزمره.\n\nیکی از ابزارهای زیر را انتخاب کن:",
         "language": "🌍 تغییر زبان",
         "support": "💬 پشتیبانی",
-        "home": "🏠 خانه",
-        "help_btn": "ℹ️ راهنما",
         "img_pdf": "🖼️ عکس به PDF",
         "text_pdf": "📝 متن به PDF",
         "pdf_text": "📄 PDF به متن",
@@ -98,17 +96,13 @@ TEXT = {
         "btn_broadcast": "📢 ارسال همگانی",
         "btn_stats": "📊 آمار ربات",
         "btn_lock": "🔒 قفل ربات",
-        "btn_unlock": "🔓 باز کردن ربات",
-        "start_bot": "شروع ربات 🚀",
-        "admin_panel_btn": "پنل مدیریت 👑"
+        "btn_unlock": "🔓 باز کردن ربات"
     },
     "en": {
         "choose_lang": "🌍 Please choose your language:",
         "welcome": "✨ Hello {name}!\n\nWelcome to NEXORA BOT.\nYour digital toolbox for everyday tasks.\n\nChoose a tool:",
         "language": "🌍 Change language",
         "support": "💬 Support",
-        "home": "🏠 Home",
-        "help_btn": "ℹ️ Help",
         "img_pdf": "🖼️ Image to PDF",
         "text_pdf": "📝 Text to PDF",
         "pdf_text": "📄 PDF to Text",
@@ -158,9 +152,7 @@ TEXT = {
         "btn_broadcast": "📢 Broadcast",
         "btn_stats": "📊 Bot Stats",
         "btn_lock": "🔒 Lock Bot",
-        "btn_unlock": "🔓 Unlock Bot",
-        "start_bot": "Start Bot 🚀",
-        "admin_panel_btn": "Admin Panel 👑"
+        "btn_unlock": "🔓 Unlock Bot"
     },
 }
 
@@ -265,24 +257,6 @@ def main_menu(chat_id):
     )
     return markup
 
-def persistent_keyboard(chat_id):
-    labels = TEXT[language(chat_id)]
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add(
-        types.KeyboardButton(labels["home"]),
-        types.KeyboardButton(labels["help_btn"])
-    )
-    return markup
-
-def admin_keyboard(chat_id):
-    labels = TEXT[language(chat_id)]
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add(
-        types.KeyboardButton(labels["start_bot"]),
-        types.KeyboardButton(labels["admin_panel_btn"])
-    )
-    return markup
-
 def back_menu(chat_id):
     return types.InlineKeyboardMarkup().add(
         types.InlineKeyboardButton(tr(chat_id, "back"), callback_data="home")
@@ -296,10 +270,6 @@ def show_home(chat_id, name=""):
         tr(chat_id, "welcome", name=name or "دوست عزیز"),
         reply_markup=main_menu(chat_id)
     )
-    if chat_id in ADMIN_IDS:
-        bot.send_message(chat_id, "👇", reply_markup=admin_keyboard(chat_id))
-    else:
-        bot.send_message(chat_id, "👇", reply_markup=persistent_keyboard(chat_id))
 
 # =============== PDF SUPPORT ===============
 def make_pdf(text, output):
@@ -620,20 +590,8 @@ def text_handler(message):
     text = message.text
     labels = TEXT[language(chat_id)]
 
-    if text in {labels["home"], "🏠 خانه", "🏠 Home", "Start", "شروع"}:
-        show_home(chat_id, message.from_user.first_name)
-        return
     if text in {labels["help_btn"], "ℹ️ راهنما", "ℹ️ Help", "راهنما", "Help"}:
         bot.send_message(chat_id, tr(chat_id, "help"), reply_markup=back_menu(chat_id))
-        return
-
-    if text in {labels["start_bot"], "Start Bot 🚀", "شروع ربات 🚀"}:
-        show_home(chat_id, message.from_user.first_name)
-        return
-        
-    if text in {labels["admin_panel_btn"], "Admin Panel 👑", "پنل مدیریت 👑"}:
-        if message.from_user.id in ADMIN_IDS:
-            admin_panel(message)
         return
 
     if mode == "translate":
@@ -765,13 +723,23 @@ def media_handler(message):
 if __name__ == "__main__":
     logger.info("%s is starting...", BOT_NAME)
     
-    # تنظیم منوی دستورات گوشه کیبورد
+    # تنظیم منوی دستورات گوشه کیبورد (فقط برای ادمین /panel نمایش داده می‌شود)
     try:
         bot.set_my_commands([
             types.BotCommand("start", "شروع ربات / Start Bot"),
-            types.BotCommand("panel", "پنل مدیریت / Admin Panel"),
             types.BotCommand("language", "تغییر زبان / Change Language")
         ])
+        
+        # برای ادمین، دستور /panel به صورت جداگانه ثبت می‌شود
+        for admin_id in ADMIN_IDS:
+            try:
+                bot.set_my_commands([
+                    types.BotCommand("start", "شروع ربات / Start Bot"),
+                    types.BotCommand("panel", "پنل مدیریت / Admin Panel"),
+                    types.BotCommand("language", "تغییر زبان / Change Language")
+                ], scope=types.BotCommandScopeChat(admin_id))
+            except Exception:
+                pass
     except Exception as e:
         logger.error(f"Failed to set commands: {e}")
 
