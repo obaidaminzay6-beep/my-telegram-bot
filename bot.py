@@ -1,3 +1,5 @@
+
+
 import os
 import re
 import json
@@ -6,17 +8,13 @@ import logging
 import threading
 import tempfile
 import datetime
-import platform
-import psutil
 from pathlib import Path
 
 import telebot
 from telebot import types
 from PIL import Image, ImageOps
-import qrcode
 import PyPDF2
 from fpdf import FPDF
-from googletrans import Translator
 import jdatetime
 import requests
 
@@ -55,37 +53,30 @@ TEXT = {
         "text_pdf": "📝 متن به PDF",
         "pdf_text": "📄 PDF به متن",
         "ai_assistant": "🤖 دستیار هوش مصنوعی",
-        "qr": "📱 ساخت QR",
-        "translate": "🌐 ترجمه متن",
         "date": "📅 تاریخ و ساعت",
         "about": "ℹ️ درباره ربات",
         "profile": "👤 پروفایل من",
         "prompt_img_pdf": "🖼️ عکس خود را بفرست تا به PDF تبدیل کنم.",
         "prompt_text_pdf": "📝 متن خود را بفرست تا به PDF تبدیل کنم.",
         "prompt_pdf_text": "📄 فایل PDF خود را بفرست.",
-        "prompt_qr": "📱 متن یا لینک را بفرست تا QR بسازم.",
-        "prompt_translate": "🌐 متن خود را برای ترجمه بفرست.",
-        "prompt_ai": "🤖 لطفاً سوال خود را بنویسید تا هوش مصنوعی پاسخ دهد. (برای خروج روی بازگشت به منو بزنید)",
+        "prompt_ai": "🤖 لطفاً سوال خود را بنویسید (یا متنی برای ترجمه بفرستید).\n(برای خروج روی بازگشت به منو بزنید)",
         "processing": "⏳ در حال پردازش؛ لطفاً صبر کن.",
         "done": "✅ عملیات با موفقیت انجام شد.",
         "error": "❌ عملیات انجام نشد. دوباره امتحان کن.",
         "bad_file": "❌ لطفاً فایل مناسب این ابزار را بفرست.",
         "too_large": "❌ حجم فایل بیش از حد مجاز است.",
         "text_options": "متن دریافت شد. انتخاب کن چه کاری انجام بدهم:",
-        "opt_qr": "📱 ساخت QR",
-        "opt_translate": "🌐 ترجمه",
         "opt_pdf": "📝 تبدیل به PDF",
         "back": "🔙 بازگشت به منو",
         "choose_lang": "زبان را انتخاب کن:",
         "help": "📖 راهنمای NEXORA BOT\n\n۱. از منو یک ابزار انتخاب کن.\n۲. متن یا فایل مورد نیاز را بفرست.\n۳. برای بازگشت از دکمه خانه استفاده کن.\n\nلغو عملیات: /cancel",
-        "about_text": "✨ NEXORA BOT\nنسخه 8.0\nابزارهای فایل، هوش مصنوعی، QR، ترجمه، یادآوری.",
+        "about_text": "✨ NEXORA BOT\nنسخه 8.0\nابزارهای فایل، هوش مصنوعی، یادآوری.",
         "remind_help": "فرمت یادآوری:\n/remind 10m متن یادآوری\n\nواحدها: s ثانیه، m دقیقه، h ساعت، d روز",
         "remind_bad": "❌ فرمت اشتباه است. مثال: /remind 10m تماس بگیر",
         "remind_ok": "✅ یادآوری برای {when} دیگر تنظیم شد.",
         "profile_text": "👤 پروفایل شما\n\nنام: {name}\nشناسه: {id}\nزبان: {lang}\nتاریخ عضویت: {joined}\nیادآورهای فعال: {reminders}",
         "admin_only": "این فرمان مخصوص مدیر ربات است.",
         "admin_stats": "📊 کاربران: {users}\nیادآورهای فعال: {reminders}",
-        "translated": "🌐 ترجمه:\n\n{result}",
         "no_pdf_text": "❌ متنی پیدا نشد؛ ممکن است PDF اسکن‌شده باشد.",
         "rate_prompt": "⭐ لطفاً به این ابزار امتیاز بده (۱ تا ۵):",
         "rate_thanks": "🙏 ممنون از امتیاز شما!",
@@ -105,37 +96,30 @@ TEXT = {
         "text_pdf": "📝 Text to PDF",
         "pdf_text": "📄 PDF to Text",
         "ai_assistant": "🤖 AI Assistant",
-        "qr": "📱 Create QR",
-        "translate": "🌐 Translate Text",
         "date": "📅 Date & Time",
         "about": "ℹ️ About Bot",
         "profile": "👤 My Profile",
         "prompt_img_pdf": "🖼️ Send an image to convert to PDF.",
         "prompt_text_pdf": "📝 Send text to convert to PDF.",
         "prompt_pdf_text": "📄 Send a PDF file.",
-        "prompt_qr": "📱 Send text or a link to create a QR code.",
-        "prompt_translate": "🌐 Send text to translate.",
-        "prompt_ai": "🤖 Please type your question for the AI. (Click Back to Menu to exit)",
+        "prompt_ai": "🤖 Please type your question (or send text for translation).\n(Click Back to Menu to exit)",
         "processing": "⏳ Processing. Please wait.",
         "done": "✅ Completed successfully.",
         "error": "❌ Operation failed. Please try again.",
         "bad_file": "❌ Please send a supported file.",
         "too_large": "❌ File exceeds the size limit.",
         "text_options": "Text received. Choose an action:",
-        "opt_qr": "📱 Create QR",
-        "opt_translate": "🌐 Translate",
         "opt_pdf": "📝 Convert to PDF",
         "back": "🔙 Back to menu",
         "choose_lang": "Choose your language:",
         "help": "📖 NEXORA BOT Help\n\n1. Choose a tool from the menu.\n2. Send the requested text or file.\nCancel current operation: /cancel",
-        "about_text": "✨ NEXORA BOT\nVersion 8.0\nFile tools, AI, QR, translation, reminders.",
+        "about_text": "✨ NEXORA BOT\nVersion 8.0\nFile tools, AI, reminders.",
         "remind_help": "Reminder format:\n/remind 10m reminder text\nUnits: s seconds, m minutes, h hours, d days",
         "remind_bad": "❌ Invalid format. Example: /remind 10m Call back",
         "remind_ok": "✅ Reminder set for {when} from now.",
         "profile_text": "👤 Your Profile\n\nName: {name}\nID: {id}\nLanguage: {lang}\nJoined: {joined}\nActive reminders: {reminders}",
         "admin_only": "This command is for the bot administrator.",
         "admin_stats": "📊 Users: {users}\nActive reminders: {reminders}",
-        "translated": "🌐 Translation:\n\n{result}",
         "no_pdf_text": "❌ No text found. The PDF may contain scanned pages.",
         "rate_prompt": "⭐ Please rate this tool (1 to 5):",
         "rate_thanks": "🙏 Thanks for your rating!",
@@ -216,17 +200,11 @@ def main_menu(chat_id):
         types.InlineKeyboardButton(labels["ai_assistant"], callback_data="ai_assistant")
     )
     markup.row(
-        types.InlineKeyboardButton(labels["qr"], callback_data="qr"),
-        types.InlineKeyboardButton(labels["translate"], callback_data="translate")
+        types.InlineKeyboardButton(labels["date"], callback_data="date"),
+        types.InlineKeyboardButton(labels["language"], callback_data="language")
     )
     markup.row(
-        types.InlineKeyboardButton(labels["date"], callback_data="date")
-    )
-    markup.row(
-        types.InlineKeyboardButton(labels["language"], callback_data="language"),
-        types.InlineKeyboardButton(labels["support"], url=SUPPORT_LINK)
-    )
-    markup.row(
+        types.InlineKeyboardButton(labels["support"], url=SUPPORT_LINK),
         types.InlineKeyboardButton(labels["about"], callback_data="about")
     )
     return markup
@@ -467,15 +445,22 @@ def callback_handler(call):
     if data == "date":
         now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=4, minutes=30)))
         shamsi = jdatetime.datetime.fromgregorian(datetime=now.replace(tzinfo=None))
-        bot.send_message(chat_id, f"📅 تاریخ افغانستان\n\nشمسی: {shamsi.strftime('%Y/%m/%d')}\nمیلادی: {now.strftime('%Y-%m-%d')}\nساعت: {now.strftime('%H:%M:%S')}\nروز: {shamsi.strftime('%A')}", reply_markup=back_menu(chat_id))
+        
+        lang = language(chat_id)
+        if lang == "fa":
+            days_fa = {"Saturday": "شنبه", "Sunday": "یکشنبه", "Monday": "دوشنبه", "Tuesday": "سه‌شنبه", "Wednesday": "چهارشنبه", "Thursday": "پنجشنبه", "Friday": "جمعه"}
+            day_name = days_fa.get(shamsi.strftime('%A'), shamsi.strftime('%A'))
+            txt = f"📅 تاریخ افغانستان\n\nشمسی: {shamsi.strftime('%Y/%m/%d')}\nمیلادی: {now.strftime('%Y-%m-%d')}\nساعت: {now.strftime('%H:%M:%S')}\nروز: {day_name}"
+        else:
+            txt = f"📅 Date & Time\n\nShamsi: {shamsi.strftime('%Y/%m/%d')}\nGregorian: {now.strftime('%Y-%m-%d')}\nTime: {now.strftime('%H:%M:%S')}\nDay: {shamsi.strftime('%A')}"
+            
+        bot.send_message(chat_id, txt, reply_markup=back_menu(chat_id))
         return
 
     modes = {
         "img_to_pdf": "prompt_img_pdf",
         "text_to_pdf": "prompt_text_pdf",
         "pdf_to_text": "prompt_pdf_text",
-        "qr": "prompt_qr",
-        "translate": "prompt_translate",
         "ai_assistant": "prompt_ai"
     }
     if data in modes:
@@ -483,36 +468,20 @@ def callback_handler(call):
         bot.send_message(chat_id, tr(chat_id, modes[data]), reply_markup=back_menu(chat_id))
         return
 
-    if data in {"do_qr", "do_translate", "do_pdf"}:
+    if data == "do_pdf":
         text = user_text.get(str(chat_id))
         if not text:
             bot.send_message(chat_id, tr(chat_id, "error"))
             return
-        if data == "do_qr":
+        try:
             with tempfile.TemporaryDirectory() as td:
-                path = Path(td) / "qr.png"
-                qrcode.make(text).save(path)
-                with path.open("rb") as f: bot.send_photo(chat_id, f, caption=tr(chat_id, "done"))
+                path = Path(td) / "text.pdf"
+                make_pdf(text, path)
+                with path.open("rb") as f: bot.send_document(chat_id, f, caption=tr(chat_id, "done"))
             ask_rating(chat_id)
-        elif data == "do_translate":
-            try:
-                dest = "fa" if language(chat_id) == "fa" else "en"
-                result = Translator().translate(text, dest=dest)
-                bot.send_message(chat_id, tr(chat_id, "translated", result=result.text))
-                ask_rating(chat_id)
-            except Exception:
-                logger.exception("Translation error")
-                bot.send_message(chat_id, tr(chat_id, "error"))
-        elif data == "do_pdf":
-            try:
-                with tempfile.TemporaryDirectory() as td:
-                    path = Path(td) / "text.pdf"
-                    make_pdf(text, path)
-                    with path.open("rb") as f: bot.send_document(chat_id, f, caption=tr(chat_id, "done"))
-                ask_rating(chat_id)
-            except Exception:
-                logger.exception("Text to PDF error")
-                bot.send_message(chat_id, tr(chat_id, "error"))
+        except Exception:
+            logger.exception("Text to PDF error")
+            bot.send_message(chat_id, tr(chat_id, "error"))
         return
 
 # =============== TEXT HANDLER ===============
@@ -531,28 +500,6 @@ def text_handler(message):
         bot.send_message(chat_id, tr(chat_id, "help"), reply_markup=back_menu(chat_id))
         return
 
-    if mode == "qr":
-        with tempfile.TemporaryDirectory() as td:
-            path = Path(td) / "qr.png"
-            qrcode.make(text).save(path)
-            with path.open("rb") as f:
-                bot.send_photo(chat_id, f, caption=tr(chat_id, "done"), reply_markup=back_menu(chat_id))
-        user_modes.pop(str(chat_id), None)
-        ask_rating(chat_id)
-        return
-
-    if mode == "translate":
-        try:
-            dest = "fa" if language(chat_id) == "fa" else "en"
-            result = Translator().translate(text, dest=dest)
-            bot.send_message(chat_id, tr(chat_id, "translated", result=result.text), reply_markup=back_menu(chat_id))
-            ask_rating(chat_id)
-        except Exception:
-            logger.exception("Translation error")
-            bot.send_message(chat_id, tr(chat_id, "error"))
-        user_modes.pop(str(chat_id), None)
-        return
-
     if mode == "text_to_pdf":
         try:
             with tempfile.TemporaryDirectory() as td:
@@ -567,18 +514,25 @@ def text_handler(message):
         user_modes.pop(str(chat_id), None)
         return
 
-    # پاسخ هوشمندانه تر و بدون جک مسخره
     if mode == "ai_assistant":
         try:
-            response = requests.post(
-                "https://text.pollinations.ai/",
-                json={"messages": [
-                    {"role": "system", "content": "You are a helpful, smart, and serious AI assistant. Answer clearly and accurately in the user's language."},
-                    {"role": "user", "content": text}
-                ]},
-                timeout=30
-            )
-            answer = response.text
+            url = "https://api.duckduckgo.com/"
+            params = {
+                "q": text,
+                "format": "json",
+                "no_html": 1,
+                "skip_disambig": 1
+            }
+            response = requests.get(url, params=params, timeout=15)
+            data = response.json()
+            
+            if data.get("AbstractText"):
+                answer = data["AbstractText"]
+            elif data.get("RelatedTopics"):
+                answer = data["RelatedTopics"][0].get("Text", "متاسفانه پاسخی پیدا نشد.")
+            else:
+                answer = "متاسفانه در حال حاضر پاسخی برای این سوال پیدا نکردم. لطفاً سوال دیگری بپرسید."
+                
             bot.send_message(chat_id, f"🤖 پاسخ هوش مصنوعی:\n\n{answer}", reply_markup=back_menu(chat_id))
         except Exception:
             logger.exception("AI error")
@@ -587,8 +541,6 @@ def text_handler(message):
 
     user_text[str(chat_id)] = text
     markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.row(types.InlineKeyboardButton(tr(chat_id, "opt_qr"), callback_data="do_qr"))
-    markup.row(types.InlineKeyboardButton(tr(chat_id, "opt_translate"), callback_data="do_translate"))
     markup.row(types.InlineKeyboardButton(tr(chat_id, "opt_pdf"), callback_data="do_pdf"))
     markup.row(types.InlineKeyboardButton(tr(chat_id, "back"), callback_data="home"))
     bot.send_message(chat_id, tr(chat_id, "text_options"), reply_markup=markup)
@@ -611,7 +563,14 @@ def media_handler(message):
 
     mode = user_modes.get(str(chat_id))
     is_photo = message.content_type == "photo"
-    is_pdf = (message.content_type == "document" and ((message.document.mime_type or "") == "application/pdf" or (message.document.file_name or "").lower().endswith(".pdf")))
+    
+    # اصلاح تشخیص PDF (حتی اگر اسم فایل فارسی باشد)
+    is_pdf = False
+    if message.content_type == "document":
+        mime = message.document.mime_type or ""
+        fname = (message.document.file_name or "").lower()
+        if "pdf" in mime or fname.endswith(".pdf") or "pdf" in fname:
+            is_pdf = True
 
     try:
         with tempfile.TemporaryDirectory() as td:
