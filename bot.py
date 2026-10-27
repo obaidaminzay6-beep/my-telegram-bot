@@ -19,7 +19,6 @@ from fpdf import FPDF
 from googletrans import Translator
 import jdatetime
 import requests
-from moviepy import ImageClip, AudioFileClip
 
 # =============== NEXORA BOT CONFIG ===============
 TOKEN = os.getenv("TOKEN", "").strip()
@@ -68,7 +67,6 @@ TEXT = {
         "prompt_qr": "📱 متن یا لینک را بفرست تا QR بسازم.",
         "prompt_translate": "🌐 متن خود را برای ترجمه بفرست.",
         "prompt_ai": "🤖 لطفاً سوال خود را بنویسید تا هوش مصنوعی پاسخ دهد. (برای خروج روی بازگشت به منو بزنید)",
-        "prompt_video": "🎬 لطفاً یک عکس و سپس یک آهنگ بفرستید تا ویدیو بسازم (عکس را اول بفرستید).",
         "processing": "⏳ در حال پردازش؛ لطفاً صبر کن.",
         "done": "✅ عملیات با موفقیت انجام شد.",
         "error": "❌ عملیات انجام نشد. دوباره امتحان کن.",
@@ -96,7 +94,8 @@ TEXT = {
         "broadcast_prompt": "📢 لطفاً پیام خود را برای ارسال همگانی بنویسید:",
         "broadcast_done": "✅ پیام شما به {count} کاربر ارسال شد.",
         "lock_done": "🔒 ربات قفل شد (حالت تعمیر).",
-        "unlock_done": "🔓 ربات از حالت تعمیر خارج شد."
+        "unlock_done": "🔓 ربات از حالت تعمیر خارج شد.",
+        "video_disabled": "🎬 بخش ساخت ویدیو موقتاً به دلیل محدودیت سرور غیرفعال است."
     },
     "en": {
         "welcome": "✨ Hello {name}!\n\nWelcome to NEXORA BOT.\nYour digital toolbox for everyday tasks.\n\nChoose a tool:",
@@ -120,7 +119,6 @@ TEXT = {
         "prompt_qr": "📱 Send text or a link to create a QR code.",
         "prompt_translate": "🌐 Send text to translate.",
         "prompt_ai": "🤖 Please type your question for the AI. (Click Back to Menu to exit)",
-        "prompt_video": "🎬 Please send an image first, then an audio file to create a video.",
         "processing": "⏳ Processing. Please wait.",
         "done": "✅ Completed successfully.",
         "error": "❌ Operation failed. Please try again.",
@@ -148,7 +146,8 @@ TEXT = {
         "broadcast_prompt": "📢 Please enter your broadcast message:",
         "broadcast_done": "✅ Message sent to {count} users.",
         "lock_done": "🔒 Bot locked (maintenance mode).",
-        "unlock_done": "🔓 Bot unlocked."
+        "unlock_done": "🔓 Bot unlocked.",
+        "video_disabled": "🎬 Video Maker is temporarily disabled due to server limits."
     },
 }
 
@@ -295,15 +294,6 @@ def make_pdf(text, output):
     for line in text.splitlines() or [""]:
         pdf.multi_cell(0, 8, shape(line))
     pdf.output(str(output))
-
-# =============== VIDEO MAKER ===============
-def make_video(image_path, audio_path, output_path):
-    audio = AudioFileClip(str(audio_path))
-    img = ImageClip(str(image_path)).set_duration(audio.duration)
-    video = img.set_audio(audio)
-    video.write_videofile(str(output_path), fps=24, codec="libx264", audio_codec="aac", logger=None)
-    audio.close()
-    video.close()
 
 # =============== REMINDERS ===============
 def reminder_worker():
@@ -485,14 +475,18 @@ def callback_handler(call):
         bot.send_message(chat_id, f"📅 تاریخ افغانستان\n\nشمسی: {shamsi.strftime('%Y/%m/%d')}\nمیلادی: {now.strftime('%Y-%m-%d')}\nساعت: {now.strftime('%H:%M:%S')}\nروز: {shamsi.strftime('%A')}", reply_markup=back_menu(chat_id))
         return
 
+    # غیرفعال کردن موقت ساخت ویدیو
+    if data == "video_maker":
+        bot.send_message(chat_id, tr(chat_id, "video_disabled"), reply_markup=back_menu(chat_id))
+        return
+
     modes = {
         "img_to_pdf": "prompt_img_pdf",
         "text_to_pdf": "prompt_text_pdf",
         "pdf_to_text": "prompt_pdf_text",
         "qr": "prompt_qr",
         "translate": "prompt_translate",
-        "ai_assistant": "prompt_ai",
-        "video_maker": "prompt_video"
+        "ai_assistant": "prompt_ai"
     }
     if data in modes:
         user_modes[str(chat_id)] = data
@@ -583,7 +577,6 @@ def text_handler(message):
         user_modes.pop(str(chat_id), None)
         return
 
-    # بخش اصلاح شده هوش مصنوعی (چت مداوم)
     if mode == "ai_assistant":
         try:
             response = requests.post(
@@ -596,7 +589,7 @@ def text_handler(message):
         except Exception:
             logger.exception("AI error")
             bot.send_message(chat_id, tr(chat_id, "error"), reply_markup=back_menu(chat_id))
-        return  # <- اینجا دیگه user_modes رو پاک نمیکنیم تا چت ادامه پیدا کنه
+        return
 
     user_text[str(chat_id)] = text
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -616,7 +609,7 @@ def get_file_bytes(file_id):
         raise ValueError("too_large")
     return data
 
-@bot.message_handler(content_types=["photo", "document", "audio"])
+@bot.message_handler(content_types=["photo", "document"])
 def media_handler(message):
     chat_id = message.chat.id
     register_user(message.from_user)
@@ -624,40 +617,11 @@ def media_handler(message):
 
     mode = user_modes.get(str(chat_id))
     is_photo = message.content_type == "photo"
-    is_audio = message.content_type == "audio"
     is_pdf = (message.content_type == "document" and ((message.document.mime_type or "") == "application/pdf" or (message.document.file_name or "").lower().endswith(".pdf")))
 
     try:
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)
-
-            # --- VIDEO MAKER ---
-            if mode == "video_maker":
-                if is_photo:
-                    raw = get_file_bytes(message.photo[-1].file_id)
-                    user_text[f"video_{chat_id}_img"] = raw
-                    bot.send_message(chat_id, "✅ عکس دریافت شد. حالا یک آهنگ (Audio) بفرستید.", reply_markup=back_menu(chat_id))
-                    return
-                elif is_audio:
-                    img_raw = user_text.get(f"video_{chat_id}_img")
-                    if not img_raw:
-                        bot.send_message(chat_id, "❌ اول باید یک عکس بفرستید.", reply_markup=back_menu(chat_id))
-                        return
-                    msg = bot.send_message(chat_id, tr(chat_id, "processing"))
-                    audio_raw = get_file_bytes(message.audio.file_id)
-                    img_path = td / "image.jpg"
-                    audio_path = td / "audio.mp3"
-                    video_path = td / "output.mp4"
-                    img_path.write_bytes(img_raw)
-                    audio_path.write_bytes(audio_raw)
-                    make_video(img_path, audio_path, video_path)
-                    with video_path.open("rb") as f:
-                        bot.send_video(chat_id, f, caption=tr(chat_id, "done"), reply_markup=back_menu(chat_id))
-                    bot.delete_message(chat_id, msg.message_id)
-                    user_modes.pop(str(chat_id), None)
-                    user_text.pop(f"video_{chat_id}_img", None)
-                    ask_rating(chat_id)
-                    return
 
             # --- IMG TO PDF ---
             if is_photo and mode == "img_to_pdf":

@@ -10,5 +10,4 @@ jdatetime
 arabic_reshaper
 python-bidi
 requests
-moviepy==1.0.3
 psutil
