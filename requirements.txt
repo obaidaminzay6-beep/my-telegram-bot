@@ -11,3 +11,4 @@ arabic_reshaper
 python-bidi
 requests
 moviepy
+psutil
