@@ -1,5 +1,3 @@
-
-
 import os
 import re
 import json
@@ -17,15 +15,16 @@ import PyPDF2
 from fpdf import FPDF
 import jdatetime
 import requests
+from googletrans import Translator
 
 # =============== NEXORA BOT CONFIG ===============
 TOKEN = os.getenv("TOKEN", "").strip()
 if not TOKEN:
     raise RuntimeError("TOKEN is missing.")
 
-BOT_NAME = "NEXORA BOT v8.0"
+BOT_NAME = "NEXORA BOT v9.0"
 SUPPORT_LINK = os.getenv("SUPPORT_LINK", "https://t.me/DarkVenom404")
-ADMIN_IDS = {7210433916}
+ADMIN_IDS = {7210433916}  # آیدی عددی ادمین
 
 DB_FILE = Path("user_data.json")
 REMINDERS_FILE = Path("reminders.json")
@@ -44,6 +43,7 @@ user_text = {}
 # =============== LANGUAGE TEXTS ===============
 TEXT = {
     "fa": {
+        "choose_lang": "🌍 لطفاً زبان خود را انتخاب کنید:",
         "welcome": "✨ سلام {name} عزیز!\n\nبه NEXORA BOT خوش آمدی.\nجعبه‌ابزار دیجیتالی تو برای کارهای روزمره.\n\nیکی از ابزارهای زیر را انتخاب کن:",
         "language": "🌍 تغییر زبان",
         "support": "💬 پشتیبانی",
@@ -53,12 +53,14 @@ TEXT = {
         "text_pdf": "📝 متن به PDF",
         "pdf_text": "📄 PDF به متن",
         "ai_assistant": "🤖 دستیار هوش مصنوعی",
+        "translate": "🌐 ترجمه متن",
         "date": "📅 تاریخ و ساعت",
         "about": "ℹ️ درباره ربات",
         "profile": "👤 پروفایل من",
         "prompt_img_pdf": "🖼️ عکس خود را بفرست تا به PDF تبدیل کنم.",
         "prompt_text_pdf": "📝 متن خود را بفرست تا به PDF تبدیل کنم.",
         "prompt_pdf_text": "📄 فایل PDF خود را بفرست.",
+        "prompt_translate": "🌐 متن خود را برای ترجمه بفرست.",
         "prompt_ai": "🤖 لطفاً سوال خود را بنویسید (یا متنی برای ترجمه بفرستید).\n(برای خروج روی بازگشت به منو بزنید)",
         "processing": "⏳ در حال پردازش؛ لطفاً صبر کن.",
         "done": "✅ عملیات با موفقیت انجام شد.",
@@ -66,17 +68,18 @@ TEXT = {
         "bad_file": "❌ لطفاً فایل مناسب این ابزار را بفرست.",
         "too_large": "❌ حجم فایل بیش از حد مجاز است.",
         "text_options": "متن دریافت شد. انتخاب کن چه کاری انجام بدهم:",
+        "opt_translate": "🌐 ترجمه",
         "opt_pdf": "📝 تبدیل به PDF",
         "back": "🔙 بازگشت به منو",
-        "choose_lang": "زبان را انتخاب کن:",
         "help": "📖 راهنمای NEXORA BOT\n\n۱. از منو یک ابزار انتخاب کن.\n۲. متن یا فایل مورد نیاز را بفرست.\n۳. برای بازگشت از دکمه خانه استفاده کن.\n\nلغو عملیات: /cancel",
-        "about_text": "✨ NEXORA BOT\nنسخه 8.0\nابزارهای فایل، هوش مصنوعی، یادآوری.",
+        "about_text": "✨ NEXORA BOT\nنسخه 9.0\nابزارهای فایل، هوش مصنوعی، ترجمه و یادآوری.",
         "remind_help": "فرمت یادآوری:\n/remind 10m متن یادآوری\n\nواحدها: s ثانیه، m دقیقه، h ساعت، d روز",
         "remind_bad": "❌ فرمت اشتباه است. مثال: /remind 10m تماس بگیر",
         "remind_ok": "✅ یادآوری برای {when} دیگر تنظیم شد.",
         "profile_text": "👤 پروفایل شما\n\nنام: {name}\nشناسه: {id}\nزبان: {lang}\nتاریخ عضویت: {joined}\nیادآورهای فعال: {reminders}",
         "admin_only": "این فرمان مخصوص مدیر ربات است.",
-        "admin_stats": "📊 کاربران: {users}\nیادآورهای فعال: {reminders}",
+        "admin_stats": "📊 **آمار ربات**\n\n👥 کل کاربران: {users}\n✅ تایید شده: {approved}\n⏳ در انتظار تایید: {pending}\n⏰ یادآورهای فعال: {reminders}",
+        "translated": "🌐 ترجمه:\n\n{result}",
         "no_pdf_text": "❌ متنی پیدا نشد؛ ممکن است PDF اسکن‌شده باشد.",
         "rate_prompt": "⭐ لطفاً به این ابزار امتیاز بده (۱ تا ۵):",
         "rate_thanks": "🙏 ممنون از امتیاز شما!",
@@ -84,9 +87,23 @@ TEXT = {
         "broadcast_prompt": "📢 لطفاً پیام خود را برای ارسال همگانی بنویسید:",
         "broadcast_done": "✅ پیام شما به {count} کاربر ارسال شد.",
         "lock_done": "🔒 ربات قفل شد (حالت تعمیر).",
-        "unlock_done": "🔓 ربات از حالت تعمیر خارج شد."
+        "unlock_done": "🔓 ربات از حالت تعمیر خارج شد.",
+        "wait_approval": "⏳ حساب شما در حال بررسی است.\nلطفاً منتظر تایید مدیر ربات بمانید.",
+        "user_approved": "✅ حساب شما تایید شد! اکنون می‌توانید از ربات استفاده کنید.",
+        "user_rejected": "❌ متاسفانه دسترسی شما به ربات رد شد.",
+        "admin_new_user": "👤 **درخواست دسترسی جدید**\n\nنام: {name}\nآیدی: `{id}`\n\nآیا اجازه استفاده می‌دهید؟",
+        "approved_btn": "✅ تایید",
+        "rejected_btn": "❌ رد",
+        "admin_panel": "👑 **پنل مدیریت**\nلطفاً یک گزینه را انتخاب کنید:",
+        "btn_broadcast": "📢 ارسال همگانی",
+        "btn_stats": "📊 آمار ربات",
+        "btn_lock": "🔒 قفل ربات",
+        "btn_unlock": "🔓 باز کردن ربات",
+        "start_bot": "شروع ربات 🚀",
+        "admin_panel_btn": "پنل مدیریت 👑"
     },
     "en": {
+        "choose_lang": "🌍 Please choose your language:",
         "welcome": "✨ Hello {name}!\n\nWelcome to NEXORA BOT.\nYour digital toolbox for everyday tasks.\n\nChoose a tool:",
         "language": "🌍 Change language",
         "support": "💬 Support",
@@ -96,12 +113,14 @@ TEXT = {
         "text_pdf": "📝 Text to PDF",
         "pdf_text": "📄 PDF to Text",
         "ai_assistant": "🤖 AI Assistant",
+        "translate": "🌐 Translate Text",
         "date": "📅 Date & Time",
         "about": "ℹ️ About Bot",
         "profile": "👤 My Profile",
         "prompt_img_pdf": "🖼️ Send an image to convert to PDF.",
         "prompt_text_pdf": "📝 Send text to convert to PDF.",
         "prompt_pdf_text": "📄 Send a PDF file.",
+        "prompt_translate": "🌐 Send text to translate.",
         "prompt_ai": "🤖 Please type your question (or send text for translation).\n(Click Back to Menu to exit)",
         "processing": "⏳ Processing. Please wait.",
         "done": "✅ Completed successfully.",
@@ -109,17 +128,18 @@ TEXT = {
         "bad_file": "❌ Please send a supported file.",
         "too_large": "❌ File exceeds the size limit.",
         "text_options": "Text received. Choose an action:",
+        "opt_translate": "🌐 Translate",
         "opt_pdf": "📝 Convert to PDF",
         "back": "🔙 Back to menu",
-        "choose_lang": "Choose your language:",
         "help": "📖 NEXORA BOT Help\n\n1. Choose a tool from the menu.\n2. Send the requested text or file.\nCancel current operation: /cancel",
-        "about_text": "✨ NEXORA BOT\nVersion 8.0\nFile tools, AI, reminders.",
+        "about_text": "✨ NEXORA BOT\nVersion 9.0\nFile tools, AI, translation and reminders.",
         "remind_help": "Reminder format:\n/remind 10m reminder text\nUnits: s seconds, m minutes, h hours, d days",
         "remind_bad": "❌ Invalid format. Example: /remind 10m Call back",
         "remind_ok": "✅ Reminder set for {when} from now.",
         "profile_text": "👤 Your Profile\n\nName: {name}\nID: {id}\nLanguage: {lang}\nJoined: {joined}\nActive reminders: {reminders}",
         "admin_only": "This command is for the bot administrator.",
-        "admin_stats": "📊 Users: {users}\nActive reminders: {reminders}",
+        "admin_stats": "📊 **Bot Stats**\n\n👥 Total Users: {users}\n✅ Approved: {approved}\n⏳ Pending: {pending}\n⏰ Active Reminders: {reminders}",
+        "translated": "🌐 Translation:\n\n{result}",
         "no_pdf_text": "❌ No text found. The PDF may contain scanned pages.",
         "rate_prompt": "⭐ Please rate this tool (1 to 5):",
         "rate_thanks": "🙏 Thanks for your rating!",
@@ -127,7 +147,20 @@ TEXT = {
         "broadcast_prompt": "📢 Please enter your broadcast message:",
         "broadcast_done": "✅ Message sent to {count} users.",
         "lock_done": "🔒 Bot locked (maintenance mode).",
-        "unlock_done": "🔓 Bot unlocked."
+        "unlock_done": "🔓 Bot unlocked.",
+        "wait_approval": "⏳ Your account is pending review.\nPlease wait for admin approval.",
+        "user_approved": "✅ Your account has been approved! You can now use the bot.",
+        "user_rejected": "❌ Unfortunately, your access has been denied.",
+        "admin_new_user": "👤 **New Access Request**\n\nName: {name}\nID: `{id}`\n\nDo you allow access?",
+        "approved_btn": "✅ Approve",
+        "rejected_btn": "❌ Reject",
+        "admin_panel": "👑 **Admin Panel**\nPlease select an option:",
+        "btn_broadcast": "📢 Broadcast",
+        "btn_stats": "📊 Bot Stats",
+        "btn_lock": "🔒 Lock Bot",
+        "btn_unlock": "🔓 Unlock Bot",
+        "start_bot": "Start Bot 🚀",
+        "admin_panel_btn": "Admin Panel 👑"
     },
 }
 
@@ -164,20 +197,32 @@ def tr(chat_id, key, **kwargs):
 def register_user(user):
     db = load_json(DB_FILE)
     key = str(user.id)
-    if key not in db:
+    is_new = key not in db
+    if is_new:
         db[key] = {
             "joined": datetime.datetime.now().strftime("%Y-%m-%d"),
             "first_name": user.first_name or "",
-            "lang": "fa",
+            "lang": "fa",  # زبان پیش‌فرض
+            "approved": False if user.id not in ADMIN_IDS else True
         }
+        save_json(DB_FILE, db)
     else:
-        db[key]["first_name"] = user.first_name or ""
-    save_json(DB_FILE, db)
+        if db[key].get("first_name") != (user.first_name or ""):
+            db[key]["first_name"] = user.first_name or ""
+            save_json(DB_FILE, db)
+    return is_new
+
+def is_approved(user_id):
+    if user_id in ADMIN_IDS:
+        return True
+    db = load_json(DB_FILE)
+    return db.get(str(user_id), {}).get("approved", False)
 
 def set_language(chat_id, lang):
     db = load_json(DB_FILE)
     record = db.setdefault(str(chat_id), {
-        "joined": datetime.datetime.now().strftime("%Y-%m-%d")
+        "joined": datetime.datetime.now().strftime("%Y-%m-%d"),
+        "approved": chat_id in ADMIN_IDS
     })
     record["lang"] = lang
     save_json(DB_FILE, db)
@@ -187,6 +232,14 @@ def is_locked():
     return load_json(MAINTENANCE_FILE).get("locked", False)
 
 # =============== MENUS ===============
+def lang_menu():
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.row(
+        types.InlineKeyboardButton("🇮🇷 فارسی", callback_data="setlang_fa"),
+        types.InlineKeyboardButton("🇬🇧 English", callback_data="setlang_en")
+    )
+    return markup
+
 def main_menu(chat_id):
     labels = TEXT[language(chat_id)]
     markup = types.InlineKeyboardMarkup(row_width=2)
@@ -200,11 +253,14 @@ def main_menu(chat_id):
         types.InlineKeyboardButton(labels["ai_assistant"], callback_data="ai_assistant")
     )
     markup.row(
-        types.InlineKeyboardButton(labels["date"], callback_data="date"),
-        types.InlineKeyboardButton(labels["language"], callback_data="language")
+        types.InlineKeyboardButton(labels["translate"], callback_data="translate"),
+        types.InlineKeyboardButton(labels["date"], callback_data="date")
     )
     markup.row(
-        types.InlineKeyboardButton(labels["support"], url=SUPPORT_LINK),
+        types.InlineKeyboardButton(labels["language"], callback_data="language"),
+        types.InlineKeyboardButton(labels["support"], url=SUPPORT_LINK)
+    )
+    markup.row(
         types.InlineKeyboardButton(labels["about"], callback_data="about")
     )
     return markup
@@ -215,6 +271,15 @@ def persistent_keyboard(chat_id):
     markup.add(
         types.KeyboardButton(labels["home"]),
         types.KeyboardButton(labels["help_btn"])
+    )
+    return markup
+
+def admin_keyboard(chat_id):
+    labels = TEXT[language(chat_id)]
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add(
+        types.KeyboardButton(labels["start_bot"]),
+        types.KeyboardButton(labels["admin_panel_btn"])
     )
     return markup
 
@@ -231,7 +296,10 @@ def show_home(chat_id, name=""):
         tr(chat_id, "welcome", name=name or "دوست عزیز"),
         reply_markup=main_menu(chat_id)
     )
-    bot.send_message(chat_id, "👇", reply_markup=persistent_keyboard(chat_id))
+    if chat_id in ADMIN_IDS:
+        bot.send_message(chat_id, "👇", reply_markup=admin_keyboard(chat_id))
+    else:
+        bot.send_message(chat_id, "👇", reply_markup=persistent_keyboard(chat_id))
 
 # =============== PDF SUPPORT ===============
 def make_pdf(text, output):
@@ -298,6 +366,11 @@ threading.Thread(target=reminder_worker, daemon=True, name="reminder-worker").st
 @bot.message_handler(commands=["remind"])
 def reminder_command(message):
     register_user(message.from_user)
+    if not check_lock(message.chat.id, message.from_user.id): return
+    if not is_approved(message.from_user.id):
+        bot.reply_to(message, tr(message.chat.id, "wait_approval"))
+        return
+        
     parts = message.text.split(maxsplit=2)
     if len(parts) < 3:
         bot.reply_to(message, tr(message.chat.id, "remind_help"))
@@ -329,14 +402,54 @@ def check_lock(chat_id, user_id):
 # =============== COMMANDS ===============
 @bot.message_handler(commands=["start"])
 def start_command(message):
-    register_user(message.from_user)
+    is_new = register_user(message.from_user)
     if not check_lock(message.chat.id, message.from_user.id): return
+    
+    if is_new and message.from_user.id not in ADMIN_IDS:
+        bot.send_message(message.chat.id, tr(message.chat.id, "choose_lang"), reply_markup=lang_menu())
+        for admin_id in ADMIN_IDS:
+            markup = types.InlineKeyboardMarkup()
+            markup.add(
+                types.InlineKeyboardButton(tr(admin_id, "approved_btn"), callback_data=f"approve_{message.from_user.id}"),
+                types.InlineKeyboardButton(tr(admin_id, "rejected_btn"), callback_data=f"reject_{message.from_user.id}")
+            )
+            try:
+                bot.send_message(admin_id, tr(admin_id, "admin_new_user", name=message.from_user.first_name, id=message.from_user.id), reply_markup=markup, parse_mode="Markdown")
+            except Exception:
+                pass
+        return
+
+    if not is_approved(message.from_user.id):
+        bot.send_message(message.chat.id, tr(message.chat.id, "wait_approval"))
+        return
+        
     show_home(message.chat.id, message.from_user.first_name)
+
+@bot.message_handler(commands=["panel"])
+def admin_panel(message):
+    if message.from_user.id not in ADMIN_IDS:
+        bot.reply_to(message, tr(message.chat.id, "admin_only"))
+        return
+    
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.row(
+        types.InlineKeyboardButton(tr(message.chat.id, "btn_broadcast"), callback_data="admin_broadcast"),
+        types.InlineKeyboardButton(tr(message.chat.id, "btn_stats"), callback_data="admin_stats")
+    )
+    markup.row(
+        types.InlineKeyboardButton(tr(message.chat.id, "btn_lock"), callback_data="admin_lock"),
+        types.InlineKeyboardButton(tr(message.chat.id, "btn_unlock"), callback_data="admin_unlock")
+    )
+    markup.row(types.InlineKeyboardButton(tr(message.chat.id, "back"), callback_data="home"))
+    bot.send_message(message.chat.id, tr(message.chat.id, "admin_panel"), reply_markup=markup)
 
 @bot.message_handler(commands=["help"])
 def help_command(message):
     register_user(message.from_user)
     if not check_lock(message.chat.id, message.from_user.id): return
+    if not is_approved(message.from_user.id):
+        bot.send_message(message.chat.id, tr(message.chat.id, "wait_approval"))
+        return
     bot.send_message(message.chat.id, tr(message.chat.id, "help"), reply_markup=back_menu(message.chat.id))
 
 @bot.message_handler(commands=["cancel"])
@@ -345,48 +458,6 @@ def cancel_command(message):
     user_modes.pop(str(message.chat.id), None)
     user_text.pop(str(message.chat.id), None)
     bot.send_message(message.chat.id, "✅ " + tr(message.chat.id, "back"), reply_markup=main_menu(message.chat.id))
-    bot.send_message(message.chat.id, "👇", reply_markup=persistent_keyboard(message.chat.id))
-
-@bot.message_handler(commands=["admin"])
-def admin_command(message):
-    if message.from_user.id not in ADMIN_IDS:
-        bot.reply_to(message, tr(message.chat.id, "admin_only"))
-        return
-    users = load_json(DB_FILE)
-    reminders = load_json(REMINDERS_FILE)
-    count = sum(len(x) for x in reminders.values() if isinstance(x, list))
-    bot.send_message(message.chat.id, tr(message.chat.id, "admin_stats", users=len(users), reminders=count))
-
-@bot.message_handler(commands=["broadcast"])
-def broadcast_command(message):
-    if message.from_user.id not in ADMIN_IDS:
-        bot.reply_to(message, tr(message.chat.id, "admin_only"))
-        return
-    msg = bot.reply_to(message, tr(message.chat.id, "broadcast_prompt"))
-    bot.register_next_step_handler(msg, send_broadcast)
-
-def send_broadcast(message):
-    if message.from_user.id not in ADMIN_IDS: return
-    users = load_json(DB_FILE)
-    count = 0
-    for chat_id in users.keys():
-        try:
-            bot.send_message(chat_id, message.text)
-            count += 1
-        except: pass
-    bot.reply_to(message, tr(message.chat.id, "broadcast_done", count=count))
-
-@bot.message_handler(commands=["lock"])
-def lock_command(message):
-    if message.from_user.id not in ADMIN_IDS: return
-    save_json(MAINTENANCE_FILE, {"locked": True})
-    bot.reply_to(message, tr(message.chat.id, "lock_done"))
-
-@bot.message_handler(commands=["unlock"])
-def unlock_command(message):
-    if message.from_user.id not in ADMIN_IDS: return
-    save_json(MAINTENANCE_FILE, {"locked": False})
-    bot.reply_to(message, tr(message.chat.id, "unlock_done"))
 
 # =============== RATING ===============
 def ask_rating(chat_id):
@@ -409,26 +480,77 @@ def handle_rating(call):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     chat_id = call.message.chat.id
-    register_user(call.from_user)
+    user = call.from_user
+    register_user(user)
     bot.answer_callback_query(call.id)
 
-    if call.data != "home":
-        if not check_lock(chat_id, call.from_user.id): return
+    # --- APPROVAL SYSTEM ---
+    if call.data.startswith("approve_") and user.id in ADMIN_IDS:
+        uid = call.data.split("_")[1]
+        db = load_json(DB_FILE)
+        if uid in db:
+            db[uid]["approved"] = True
+            save_json(DB_FILE, db)
+            try: bot.send_message(uid, tr(uid, "user_approved"))
+            except: pass
+            bot.edit_message_text(f"✅ User {uid} approved.", chat_id, call.message.message_id)
+        return
+    if call.data.startswith("reject_") and user.id in ADMIN_IDS:
+        uid = call.data.split("_")[1]
+        db = load_json(DB_FILE)
+        if uid in db:
+            db[uid]["approved"] = False
+            save_json(DB_FILE, db)
+            try: bot.send_message(uid, tr(uid, "user_rejected"))
+            except: pass
+            bot.edit_message_text(f"❌ User {uid} rejected.", chat_id, call.message.message_id)
+        return
+
+    # --- SET LANGUAGE ---
+    if call.data.startswith("setlang_"):
+        lang = call.data.split("_")[1]
+        set_language(chat_id, lang)
+        bot.delete_message(chat_id, call.message.message_id)
+        if is_approved(user.id):
+            show_home(chat_id, user.first_name)
+        else:
+            bot.send_message(chat_id, tr(chat_id, "wait_approval"))
+        return
+
+    if not check_lock(chat_id, user.id): return
+    if not is_approved(user.id):
+        bot.send_message(chat_id, tr(chat_id, "wait_approval"))
+        return
 
     data = call.data
 
+    # --- ADMIN PANEL CALLBACKS ---
+    if data == "admin_broadcast" and user.id in ADMIN_IDS:
+        msg = bot.send_message(chat_id, tr(chat_id, "broadcast_prompt"))
+        bot.register_next_step_handler(msg, send_broadcast)
+        return
+    if data == "admin_stats" and user.id in ADMIN_IDS:
+        db = load_json(DB_FILE)
+        approved_count = sum(1 for u in db.values() if u.get("approved"))
+        pending_count = len(db) - approved_count
+        rem = load_json(REMINDERS_FILE)
+        rem_count = sum(len(x) for x in rem.values() if isinstance(x, list))
+        bot.send_message(chat_id, tr(chat_id, "admin_stats", users=len(db), approved=approved_count, pending=pending_count, reminders=rem_count), parse_mode="Markdown")
+        return
+    if data == "admin_lock" and user.id in ADMIN_IDS:
+        save_json(MAINTENANCE_FILE, {"locked": True})
+        bot.send_message(chat_id, tr(chat_id, "lock_done"))
+        return
+    if data == "admin_unlock" and user.id in ADMIN_IDS:
+        save_json(MAINTENANCE_FILE, {"locked": False})
+        bot.send_message(chat_id, tr(chat_id, "unlock_done"))
+        return
+
     if data == "home":
-        show_home(chat_id, call.from_user.first_name)
+        show_home(chat_id, user.first_name)
         return
     if data == "language":
-        markup = types.InlineKeyboardMarkup(row_width=2)
-        markup.row(types.InlineKeyboardButton("دری / فارسی", callback_data="lang_fa"), types.InlineKeyboardButton("English", callback_data="lang_en"))
-        markup.row(types.InlineKeyboardButton("🏠 Home", callback_data="home"))
-        bot.send_message(chat_id, tr(chat_id, "choose_lang"), reply_markup=markup)
-        return
-    if data.startswith("lang_"):
-        set_language(chat_id, data.split("_", 1)[1])
-        show_home(chat_id, call.from_user.first_name)
+        bot.send_message(chat_id, tr(chat_id, "choose_lang"), reply_markup=lang_menu())
         return
     if data == "about":
         markup = types.InlineKeyboardMarkup()
@@ -440,7 +562,7 @@ def callback_handler(call):
         db = load_json(DB_FILE)
         record = db.get(str(chat_id), {})
         reminders = load_json(REMINDERS_FILE).get(str(chat_id), [])
-        bot.send_message(chat_id, tr(chat_id, "profile_text", name=call.from_user.first_name or "—", id=chat_id, lang=language(chat_id), joined=record.get("joined", "—"), reminders=len(reminders)), reply_markup=back_menu(chat_id))
+        bot.send_message(chat_id, tr(chat_id, "profile_text", name=user.first_name or "—", id=chat_id, lang=language(chat_id), joined=record.get("joined", "—"), reminders=len(reminders)), reply_markup=back_menu(chat_id))
         return
     if data == "date":
         now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=4, minutes=30)))
@@ -453,7 +575,6 @@ def callback_handler(call):
             txt = f"📅 تاریخ افغانستان\n\nشمسی: {shamsi.strftime('%Y/%m/%d')}\nمیلادی: {now.strftime('%Y-%m-%d')}\nساعت: {now.strftime('%H:%M:%S')}\nروز: {day_name}"
         else:
             txt = f"📅 Date & Time\n\nShamsi: {shamsi.strftime('%Y/%m/%d')}\nGregorian: {now.strftime('%Y-%m-%d')}\nTime: {now.strftime('%H:%M:%S')}\nDay: {shamsi.strftime('%A')}"
-            
         bot.send_message(chat_id, txt, reply_markup=back_menu(chat_id))
         return
 
@@ -461,6 +582,7 @@ def callback_handler(call):
         "img_to_pdf": "prompt_img_pdf",
         "text_to_pdf": "prompt_text_pdf",
         "pdf_to_text": "prompt_pdf_text",
+        "translate": "prompt_translate",
         "ai_assistant": "prompt_ai"
     }
     if data in modes:
@@ -490,14 +612,40 @@ def text_handler(message):
     chat_id = message.chat.id
     register_user(message.from_user)
     if not check_lock(chat_id, message.from_user.id): return
+    if not is_approved(message.from_user.id):
+        bot.send_message(chat_id, tr(chat_id, "wait_approval"))
+        return
+        
     mode = user_modes.get(str(chat_id))
     text = message.text
+    labels = TEXT[language(chat_id)]
 
-    if text in {"🏠 خانه", "🏠 Home", "Start", "شروع"}:
+    if text in {labels["home"], "🏠 خانه", "🏠 Home", "Start", "شروع"}:
         show_home(chat_id, message.from_user.first_name)
         return
-    if text in {"ℹ️ راهنما", "ℹ️ Help", "راهنما", "Help"}:
+    if text in {labels["help_btn"], "ℹ️ راهنما", "ℹ️ Help", "راهنما", "Help"}:
         bot.send_message(chat_id, tr(chat_id, "help"), reply_markup=back_menu(chat_id))
+        return
+
+    if text in {labels["start_bot"], "Start Bot 🚀", "شروع ربات 🚀"}:
+        show_home(chat_id, message.from_user.first_name)
+        return
+        
+    if text in {labels["admin_panel_btn"], "Admin Panel 👑", "پنل مدیریت 👑"}:
+        if message.from_user.id in ADMIN_IDS:
+            admin_panel(message)
+        return
+
+    if mode == "translate":
+        try:
+            dest = "fa" if language(chat_id) == "fa" else "en"
+            result = Translator().translate(text, dest=dest)
+            bot.send_message(chat_id, tr(chat_id, "translated", result=result.text), reply_markup=back_menu(chat_id))
+            ask_rating(chat_id)
+        except Exception:
+            logger.exception("Translation error")
+            bot.send_message(chat_id, tr(chat_id, "error"))
+        user_modes.pop(str(chat_id), None)
         return
 
     if mode == "text_to_pdf":
@@ -517,12 +665,7 @@ def text_handler(message):
     if mode == "ai_assistant":
         try:
             url = "https://api.duckduckgo.com/"
-            params = {
-                "q": text,
-                "format": "json",
-                "no_html": 1,
-                "skip_disambig": 1
-            }
+            params = {"q": text, "format": "json", "no_html": 1, "skip_disambig": 1}
             response = requests.get(url, params=params, timeout=15)
             data = response.json()
             
@@ -541,6 +684,7 @@ def text_handler(message):
 
     user_text[str(chat_id)] = text
     markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.row(types.InlineKeyboardButton(tr(chat_id, "opt_translate"), callback_data="do_translate"))
     markup.row(types.InlineKeyboardButton(tr(chat_id, "opt_pdf"), callback_data="do_pdf"))
     markup.row(types.InlineKeyboardButton(tr(chat_id, "back"), callback_data="home"))
     bot.send_message(chat_id, tr(chat_id, "text_options"), reply_markup=markup)
@@ -560,11 +704,13 @@ def media_handler(message):
     chat_id = message.chat.id
     register_user(message.from_user)
     if not check_lock(chat_id, message.from_user.id): return
+    if not is_approved(message.from_user.id):
+        bot.send_message(chat_id, tr(chat_id, "wait_approval"))
+        return
 
     mode = user_modes.get(str(chat_id))
     is_photo = message.content_type == "photo"
     
-    # اصلاح تشخیص PDF (حتی اگر اسم فایل فارسی باشد)
     is_pdf = False
     if message.content_type == "document":
         mime = message.document.mime_type or ""
