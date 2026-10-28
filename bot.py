@@ -15,7 +15,6 @@ import PyPDF2
 from fpdf import FPDF
 import jdatetime
 import requests
-from googletrans import Translator
 
 # =============== NEXORA BOT CONFIG ===============
 TOKEN = os.getenv("TOKEN", "").strip()
@@ -237,27 +236,22 @@ def main_menu(chat_id):
     labels = TEXT[language(chat_id)]
     markup = types.InlineKeyboardMarkup(row_width=2)
 
-    # ردیف اول: ابزارهای فایل
     markup.row(
         types.InlineKeyboardButton(labels["img_pdf"], callback_data="img_to_pdf"),
         types.InlineKeyboardButton(labels["text_pdf"], callback_data="text_to_pdf")
     )
-    # ردیف دوم: ابزارهای متن
     markup.row(
         types.InlineKeyboardButton(labels["pdf_text"], callback_data="pdf_to_text"),
         types.InlineKeyboardButton(labels["translate"], callback_data="translate")
     )
-    # ردیف سوم: ابزارهای هوشمند
     markup.row(
         types.InlineKeyboardButton(labels["ai_assistant"], callback_data="ai_assistant"),
         types.InlineKeyboardButton(labels["date"], callback_data="date")
     )
-    # ردیف چهارم: تنظیمات
     markup.row(
         types.InlineKeyboardButton(labels["language"], callback_data="language"),
         types.InlineKeyboardButton(labels["support"], url=SUPPORT_LINK)
     )
-    # ردیف پنجم: درباره
     markup.row(
         types.InlineKeyboardButton(labels["about"], callback_data="about")
     )
@@ -628,8 +622,12 @@ def text_handler(message):
     if mode == "translate":
         try:
             dest = "fa" if language(chat_id) == "fa" else "en"
-            result = Translator().translate(text, dest=dest)
-            bot.send_message(chat_id, tr(chat_id, "translated", result=result.text), reply_markup=back_menu(chat_id))
+            url = f"https://api.mymemory.translated.net/get?q={requests.utils.quote(text)}&langpair=en|{dest}" if dest=="fa" else f"https://api.mymemory.translated.net/get?q={requests.utils.quote(text)}&langpair=fa|en"
+            response = requests.get(url, timeout=15)
+            data = response.json()
+            result_text = data["responseData"]["translatedText"]
+            
+            bot.send_message(chat_id, tr(chat_id, "translated", result=result_text), reply_markup=back_menu(chat_id))
             ask_rating(chat_id)
         except Exception:
             logger.exception("Translation error")
@@ -653,18 +651,15 @@ def text_handler(message):
 
     if mode == "ai_assistant":
         try:
-            url = "https://api.duckduckgo.com/"
-            params = {"q": text, "format": "json", "no_html": 1, "skip_disambig": 1}
-            response = requests.get(url, params=params, timeout=15)
-            data = response.json()
-            
-            if data.get("AbstractText"):
-                answer = data["AbstractText"]
-            elif data.get("RelatedTopics"):
-                answer = data["RelatedTopics"][0].get("Text", "متاسفانه پاسخی پیدا نشد.")
-            else:
-                answer = "متاسفانه در حال حاضر پاسخی برای این سوال پیدا نکردم. لطفاً سوال دیگری بپرسید."
-                
+            response = requests.post(
+                "https://text.pollinations.ai/",
+                json={"messages": [
+                    {"role": "system", "content": "You are a helpful, smart AI assistant. Answer clearly and accurately in the user's language."},
+                    {"role": "user", "content": text}
+                ]},
+                timeout=30
+            )
+            answer = response.text
             bot.send_message(chat_id, f"🤖 پاسخ هوش مصنوعی:\n\n{answer}", reply_markup=back_menu(chat_id))
         except Exception:
             logger.exception("AI error")
