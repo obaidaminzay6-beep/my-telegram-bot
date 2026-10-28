@@ -54,7 +54,7 @@ TEXT = {
         "prompt_text_pdf": "📝 متن خود را بفرست تا به PDF تبدیل کنم.",
         "prompt_pdf_text": "📄 فایل PDF خود را بفرست.",
         "prompt_translate": "🌐 متن خود را برای ترجمه بفرست.",
-        "prompt_ai": "🤖 سوال خود را بنویسید.",
+        "prompt_ai": "🤖 سوال خود را بنویسید. (برای خروج روی بازگشت بزنید)",
         "done": "✅ انجام شد.",
         "error": "❌ خطا! دوباره تلاش کنید.",
         "back": "🔙 بازگشت به منو",
@@ -94,7 +94,7 @@ TEXT = {
         "prompt_text_pdf": "📝 Send text to convert to PDF.",
         "prompt_pdf_text": "📄 Send a PDF file.",
         "prompt_translate": "🌐 Send text to translate.",
-        "prompt_ai": "🤖 Write your question.",
+        "prompt_ai": "🤖 Write your question. (Click Back to exit)",
         "done": "✅ Done.",
         "error": "❌ Error! Try again.",
         "back": "🔙 Back to menu",
@@ -187,7 +187,8 @@ def make_pdf(text, out):
     pdf = FPDF()
     pdf.add_page()
     font = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-    if not os.path.isfile(font): font = "/data/data/com.termux/files/usr/share/fonts/TTF/DejaVuSans.ttf"
+    if not os.path.isfile(font): 
+        font = "/data/data/com.termux/files/usr/share/fonts/TTF/DejaVuSans.ttf"
     
     if os.path.isfile(font):
         pdf.add_font("N", fname=font); pdf.set_font("N", size=12)
@@ -200,7 +201,10 @@ def make_pdf(text, out):
         text = get_display(arabic_reshaper.reshape(text))
     except: pass
     
-    for line in text.splitlines() or [""]: pdf.multi_cell(0, 8, line)
+    for line in text.splitlines() or [""]: 
+        try: pdf.multi_cell(0, 8, line)
+        except: pass # اگر فونت فارسی نداشت، خطا نده و ادامه بده
+    
     pdf.output(str(out))
 
 # =============== COMMANDS ===============
@@ -288,7 +292,6 @@ def on_cb(c):
         bot.send_message(cid, f"📅 {sh.strftime('%Y/%m/%d')}\n⏰ {now.strftime('%H:%M:%S')}", reply_markup=back_menu(cid))
         return
 
-    # --- ADMIN PANEL ---
     if data == "adm_bcast" and uid in ADMIN_IDS:
         admin_broadcast_mode.add(uid)
         bot.send_message(cid, tr(cid,"broadcast_prompt")); return
@@ -303,7 +306,6 @@ def on_cb(c):
         with MAINTENANCE_FILE.open("w") as f: json.dump({"locked":False}, f)
         bot.send_message(cid, tr(cid,"unlock_done")); return
 
-    # --- SET MODES (CRITICAL FIX) ---
     modes_map = {
         "mode_img": ("prompt_img_pdf", "img"),
         "mode_text": ("prompt_text_pdf", "text"),
@@ -340,7 +342,6 @@ def on_text(m):
         show_home(cid, m.from_user.first_name)
         return
 
-    # --- AI MODE ---
     if mode == "ai":
         try:
             r = requests.post("https://text.pollinations.ai/", json={"messages": [{"role": "user", "content": m.text}]}, timeout=30)
@@ -348,10 +349,9 @@ def on_text(m):
             bot.send_message(cid, tr(cid,"ai_ans", ans=ans), reply_markup=back_menu(cid))
         except:
             bot.send_message(cid, tr(cid,"error"), reply_markup=back_menu(cid))
-        user_modes.pop(str(cid), None)
+        # خط پاک کردن حالت حذف شد تا چت ادامه پیدا کند
         return
 
-    # --- TRANSLATE MODE ---
     if mode == "trans":
         try:
             dest = "fa" if get_lang(cid) == "fa" else "en"
@@ -361,10 +361,9 @@ def on_text(m):
             bot.send_message(cid, tr(cid,"trans_ans", ans=ans), reply_markup=back_menu(cid))
         except:
             bot.send_message(cid, tr(cid,"error"), reply_markup=back_menu(cid))
-        user_modes.pop(str(cid), None)
+        # خط پاک کردن حالت حذف شد تا چت ادامه پیدا کند
         return
 
-    # --- TEXT TO PDF MODE ---
     if mode == "text":
         try:
             with tempfile.TemporaryDirectory() as td:
