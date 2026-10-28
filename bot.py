@@ -1,3 +1,5 @@
+
+
 import os
 import re
 import json
@@ -61,7 +63,7 @@ TEXT = {
         "error": "❌ خطا! دوباره تلاش کنید.",
         "back": "🔙 بازگشت به منو",
         "about_text": "✨ NEXORA BOT v10.0\nتوسعه‌دهنده: @DarkVenom404",
-        "admin_stats": "📊 آمار:\n\n👥 کاربران: {users}\n✅ تایید شده: {approved}\n⏳ در انتظار: {pending}",
+        "admin_stats": "📊 آمار ربات:\n\n👥 کاربران: {users}\n✅ تایید شده: {approved}\n⏳ در انتظار: {pending}",
         "broadcast_prompt": "📢 متن پیام همگانی را بنویسید:",
         "broadcast_done": "✅ به {count} کاربر ارسال شد.",
         "lock_done": "🔒 ربات قفل شد.",
@@ -80,7 +82,9 @@ TEXT = {
         "btn_unlock": "🔓 باز کردن",
         "trans_ans": "🌐 ترجمه:\n\n{ans}",
         "ai_ans": "🤖 پاسخ:\n\n{ans}",
-        "maintenance_msg": "🛠️ ربات موقتاً در حال تعمیر است. لطفاً بعداً تلاش کنید."
+        "maintenance_msg": "🛠️ ربات موقتاً در حال تعمیر است. لطفاً بعداً تلاش کنید.",
+        "pending_list": "⏳ لیست کاربران در انتظار:\n\n",
+        "no_pending": "✅ هیچ کاربری در انتظار تایید نیست."
     },
     "en": {
         "choose_lang": "🌍 Please choose your language:",
@@ -103,7 +107,7 @@ TEXT = {
         "error": "❌ Error! Try again.",
         "back": "🔙 Back to menu",
         "about_text": "✨ NEXORA BOT v10.0\nDeveloper: @DarkVenom404",
-        "admin_stats": "📊 Stats:\n\n👥 Users: {users}\n✅ Approved: {approved}\n⏳ Pending: {pending}",
+        "admin_stats": "📊 Bot Stats:\n\n👥 Users: {users}\n✅ Approved: {approved}\n⏳ Pending: {pending}",
         "broadcast_prompt": "📢 Enter broadcast message:",
         "broadcast_done": "✅ Sent to {count} users.",
         "lock_done": "🔒 Bot locked.",
@@ -122,7 +126,9 @@ TEXT = {
         "btn_unlock": "🔓 Unlock",
         "trans_ans": "🌐 Translation:\n\n{ans}",
         "ai_ans": "🤖 Answer:\n\n{ans}",
-        "maintenance_msg": "🛠️ Bot is under maintenance. Please try again later."
+        "maintenance_msg": "🛠️ Bot is under maintenance. Please try again later.",
+        "pending_list": "⏳ Pending Users List:\n\n",
+        "no_pending": "✅ No pending users found."
     }
 }
 
@@ -275,7 +281,7 @@ def on_cb(c):
         t_uid = data.split("_")[1]
         db = load_db()
         if t_uid in db:
-            db[t_uid]["approved"] = False; save_db(db)
+            db[t_uid]["approved"] = False; save_json = save_db(db)
             try: bot.send_message(t_uid, tr(t_uid,"user_rejected"))
             except: pass
             bot.edit_message_text("❌ Rejected.", cid, c.message.message_id)
@@ -300,7 +306,6 @@ def on_cb(c):
     if data == "about":
         bot.send_message(cid, tr(cid,"about_text"), reply_markup=back_menu(cid)); return
     if data == "date":
-        # تاریخ جدید با ساعت 12 ساعته و روز هفته
         now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=4, minutes=30)))
         sh = jdatetime.datetime.fromgregorian(datetime=now.replace(tzinfo=None))
         
@@ -308,8 +313,6 @@ def on_cb(c):
         days_fa = {"Saturday": "شنبه", "Sunday": "یکشنبه", "Monday": "دوشنبه", "Tuesday": "سه‌شنبه", "Wednesday": "چهارشنبه", "Thursday": "پنجشنبه", "Friday": "جمعه"}
         
         day_name = days_fa.get(sh.strftime('%A'), sh.strftime('%A')) if lang == "fa" else sh.strftime('%A')
-        
-        # ساعت 12 ساعته
         time_12 = now.strftime('%I:%M:%S %p')
         
         if lang == "fa":
@@ -326,7 +329,24 @@ def on_cb(c):
     if data == "adm_stats" and uid in ADMIN_IDS:
         db = load_db()
         appr = sum(1 for u in db.values() if u.get("approved"))
-        bot.send_message(cid, tr(cid,"admin_stats", users=len(db), approved=appr, pending=len(db)-appr)); return
+        pend = len(db) - appr
+        
+        # ارسال پیام آمار
+        bot.send_message(cid, tr(cid,"admin_stats", users=len(db), approved=appr, pending=pend))
+        
+        # ارسال لیست کاربران در انتظار
+        if pend > 0:
+            bot.send_message(cid, tr(cid, "pending_list"))
+            for u_id, u_info in db.items():
+                if not u_info.get("approved") and int(u_id) not in ADMIN_IDS:
+                    name = u_info.get("first_name", "Unknown")
+                    m3 = types.InlineKeyboardMarkup()
+                    m3.row(types.InlineKeyboardButton(tr(cid, "approved_btn"), callback_data=f"appr_{u_id}"),
+                           types.InlineKeyboardButton(tr(cid, "rejected_btn"), callback_data=f"rej_{u_id}"))
+                    bot.send_message(cid, f"👤 {name}\n🆔 {u_id}", reply_markup=m3)
+        else:
+            bot.send_message(cid, tr(cid, "no_pending"))
+        return
     if data == "adm_lock" and uid in ADMIN_IDS:
         with MAINTENANCE_FILE.open("w") as f: json.dump({"locked":True}, f)
         bot.send_message(cid, tr(cid,"lock_done")); return
@@ -334,7 +354,6 @@ def on_cb(c):
         with MAINTENANCE_FILE.open("w") as f: json.dump({"locked":False}, f)
         bot.send_message(cid, tr(cid,"unlock_done"))
         
-        # ارسال پیام خودکار به کاربران بعد از باز شدن ربات
         db = load_db()
         for u in db.keys():
             try: 
