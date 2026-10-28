@@ -1,3 +1,5 @@
+
+
 import os
 import re
 import json
@@ -663,7 +665,9 @@ def text_handler(message):
         except Exception:
             logger.exception("AI error")
             bot.send_message(chat_id, tr(chat_id, "error"), reply_markup=back_menu(chat_id))
-        return    user_text[str(chat_id)] = text
+        return
+        
+    user_text[str(chat_id)] = text
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.row(types.InlineKeyboardButton(tr(chat_id, "opt_translate"), callback_data="do_translate"))
     markup.row(types.InlineKeyboardButton(tr(chat_id, "opt_pdf"), callback_data="do_pdf"))
