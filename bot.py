@@ -1,5 +1,3 @@
-
-
 import os
 import re
 import json
@@ -67,7 +65,8 @@ TEXT = {
         "broadcast_prompt": "📢 متن پیام همگانی را بنویسید:",
         "broadcast_done": "✅ به {count} کاربر ارسال شد.",
         "lock_done": "🔒 ربات قفل شد.",
-        "unlock_done": "🔓 ربات باز شد.",
+        "unlock_done": "🔓 ربات باز شد و به کاربران اطلاع داده شد.",
+        "unlock_broadcast": "🔔 ربات دوباره فعال شد! می‌توانید از ابزارهای آن استفاده کنید.",
         "wait_approval": "⏳ در انتظار تایید مدیر.",
         "user_approved": "✅ حساب شما تایید شد!",
         "user_rejected": "❌ دسترسی شما رد شد.",
@@ -80,7 +79,8 @@ TEXT = {
         "btn_lock": "🔒 قفل",
         "btn_unlock": "🔓 باز کردن",
         "trans_ans": "🌐 ترجمه:\n\n{ans}",
-        "ai_ans": "🤖 پاسخ:\n\n{ans}"
+        "ai_ans": "🤖 پاسخ:\n\n{ans}",
+        "maintenance_msg": "🛠️ ربات موقتاً در حال تعمیر است. لطفاً بعداً تلاش کنید."
     },
     "en": {
         "choose_lang": "🌍 Please choose your language:",
@@ -107,7 +107,8 @@ TEXT = {
         "broadcast_prompt": "📢 Enter broadcast message:",
         "broadcast_done": "✅ Sent to {count} users.",
         "lock_done": "🔒 Bot locked.",
-        "unlock_done": "🔓 Bot unlocked.",
+        "unlock_done": "🔓 Bot unlocked and users notified.",
+        "unlock_broadcast": "🔔 The bot is active again! You can use its tools now.",
         "wait_approval": "⏳ Waiting for admin approval.",
         "user_approved": "✅ Your account approved!",
         "user_rejected": "❌ Access denied.",
@@ -120,7 +121,8 @@ TEXT = {
         "btn_lock": "🔒 Lock",
         "btn_unlock": "🔓 Unlock",
         "trans_ans": "🌐 Translation:\n\n{ans}",
-        "ai_ans": "🤖 Answer:\n\n{ans}"
+        "ai_ans": "🤖 Answer:\n\n{ans}",
+        "maintenance_msg": "🛠️ Bot is under maintenance. Please try again later."
     }
 }
 
@@ -155,7 +157,7 @@ def check_lock(cid, uid):
         try:
             with MAINTENANCE_FILE.open("r") as f:
                 if json.load(f).get("locked"): 
-                    bot.send_message(cid, "🛠️ ربات در حال تعمیر است."); return False
+                    bot.send_message(cid, tr(cid, "maintenance_msg")); return False
         except: pass
     return True
 
@@ -186,7 +188,7 @@ def show_home(cid, name=""):
     user_modes.pop(str(cid), None)
     bot.send_message(cid, tr(cid,"welcome", name=name or "User"), reply_markup=main_menu(cid))
 
-# =============== PDF SUPPORT (REPORTLAB) ===============
+# =============== PDF SUPPORT ===============
 def make_pdf(text, out):
     try:
         font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
@@ -298,9 +300,24 @@ def on_cb(c):
     if data == "about":
         bot.send_message(cid, tr(cid,"about_text"), reply_markup=back_menu(cid)); return
     if data == "date":
+        # تاریخ جدید با ساعت 12 ساعته و روز هفته
         now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=4, minutes=30)))
         sh = jdatetime.datetime.fromgregorian(datetime=now.replace(tzinfo=None))
-        bot.send_message(cid, f"📅 {sh.strftime('%Y/%m/%d')}\n⏰ {now.strftime('%H:%M:%S')}", reply_markup=back_menu(cid))
+        
+        lang = get_lang(cid)
+        days_fa = {"Saturday": "شنبه", "Sunday": "یکشنبه", "Monday": "دوشنبه", "Tuesday": "سه‌شنبه", "Wednesday": "چهارشنبه", "Thursday": "پنجشنبه", "Friday": "جمعه"}
+        
+        day_name = days_fa.get(sh.strftime('%A'), sh.strftime('%A')) if lang == "fa" else sh.strftime('%A')
+        
+        # ساعت 12 ساعته
+        time_12 = now.strftime('%I:%M:%S %p')
+        
+        if lang == "fa":
+            txt = f"📅 تاریخ امروز:\n\n🔹 شمسی: {sh.strftime('%Y/%m/%d')}\n🔸 میلادی: {now.strftime('%Y-%m-%d')}\n⏰ ساعت: {time_12}\n📆 روز هفته: {day_name}"
+        else:
+            txt = f"📅 Today's Date:\n\n🔹 Shamsi: {sh.strftime('%Y/%m/%d')}\n🔸 Gregorian: {now.strftime('%Y-%m-%d')}\n⏰ Time: {time_12}\n📆 Day: {day_name}"
+        
+        bot.send_message(cid, txt, reply_markup=back_menu(cid))
         return
 
     if data == "adm_bcast" and uid in ADMIN_IDS:
@@ -315,7 +332,16 @@ def on_cb(c):
         bot.send_message(cid, tr(cid,"lock_done")); return
     if data == "adm_unlock" and uid in ADMIN_IDS:
         with MAINTENANCE_FILE.open("w") as f: json.dump({"locked":False}, f)
-        bot.send_message(cid, tr(cid,"unlock_done")); return
+        bot.send_message(cid, tr(cid,"unlock_done"))
+        
+        # ارسال پیام خودکار به کاربران بعد از باز شدن ربات
+        db = load_db()
+        for u in db.keys():
+            try: 
+                bot.send_message(u, tr(u, "unlock_broadcast"))
+                time.sleep(0.05)
+            except: pass
+        return
 
     modes_map = {
         "mode_img": ("prompt_img_pdf", "img"),
