@@ -44,7 +44,7 @@ admin_broadcast_mode = set()
 TEXT = {
     "fa": {
         "choose_lang": "🌍 لطفاً زبان خود را انتخاب کنید:",
-        "welcome": "✨ **سلام {name} عزیز!**\n\nبه **NEXORA BOT** خوش آمدی. 👋\nمن جعبه‌ابزار دیجیتال همه‌کاره تو هستم!\n\n⚡️ **ابزارهای من:**\n📄 مدیریت فایل‌های PDF\n🤖 هوش مصنوعی و ترجمه\n⏰ یادآور هوشمند و تقویم\n\n👇 **برای شروع، یکی از گزینه‌های زیر را انتخاب کن:**",
+        "welcome": "✨ سلام {name} عزیز!\n\nبه NEXORA BOT خوش آمدی. 👋\nمن جعبه‌ابزار دیجیتال همه‌کاره تو هستم!\n\n⚡️ ابزارهای من:\n📄 مدیریت فایل‌های PDF\n🤖 هوش مصنوعی و ترجمه\n⏰ یادآور هوشمند و تقویم\n\n👇 برای شروع، یکی از گزینه‌های زیر را انتخاب کن:",
         "language": "🌍 تغییر زبان",
         "support": "💬 پشتیبانی",
         "img_pdf": "🖼️ عکس به PDF",
@@ -70,13 +70,13 @@ TEXT = {
         "opt_pdf": "📝 تبدیل به PDF",
         "back": "🔙 بازگشت به منو",
         "help": "📖 راهنمای NEXORA BOT\n\n۱. از منو یک ابزار انتخاب کن.\n۲. متن یا فایل مورد نیاز را بفرست.\n۳. برای بازگشت از دکمه خانه استفاده کن.",
-        "about_text": "✨ **NEXORA BOT**\nنسخه 9.5\nجعبه‌ابزار دیجیتال شما.\n\n👨‍💻 توسعه‌دهنده: @DarkVenom404",
+        "about_text": "✨ NEXORA BOT\nنسخه 9.5\nجعبه‌ابزار دیجیتال شما.\n\n👨‍💻 توسعه‌دهنده: @DarkVenom404",
         "remind_help": "فرمت یادآوری:\n/remind 10m متن یادآوری\n\nواحدها: s ثانیه، m دقیقه، h ساعت، d روز",
         "remind_bad": "❌ فرمت اشتباه است. مثال: /remind 10m تماس بگیر",
         "remind_ok": "✅ یادآوری برای {when} دیگر تنظیم شد.",
         "profile_text": "👤 پروفایل شما\n\nنام: {name}\nشناسه: {id}\nزبان: {lang}\nتاریخ عضویت: {joined}\nیادآورهای فعال: {reminders}",
         "admin_only": "این فرمان مخصوص مدیر ربات است.",
-        "admin_stats": "📊 **آمار ربات**\n\n👥 کل کاربران: {users}\n✅ تایید شده: {approved}\n⏳ در انتظار تایید: {pending}\n⏰ یادآورهای فعال: {reminders}",
+        "admin_stats": "📊 آمار ربات\n\n👥 کل کاربران: {users}\n✅ تایید شده: {approved}\n⏳ در انتظار تایید: {pending}\n⏰ یادآورهای فعال: {reminders}",
         "translated": "🌐 ترجمه:\n\n{result}",
         "no_pdf_text": "❌ متنی پیدا نشد؛ ممکن است PDF اسکن‌شده باشد.",
         "rate_prompt": "⭐ لطفاً به این ابزار امتیاز بده (۱ تا ۵):",
@@ -89,10 +89,10 @@ TEXT = {
         "wait_approval": "⏳ حساب شما در حال بررسی است.\nلطفاً منتظر تایید مدیر ربات بمانید.",
         "user_approved": "✅ حساب شما تایید شد! اکنون می‌توانید از ربات استفاده کنید.",
         "user_rejected": "❌ متاسفانه دسترسی شما به ربات رد شد.",
-        "admin_new_user": "👤 **درخواست دسترسی جدید**\n\nنام: {name}\nآیدی: `{id}`\n\nآیا اجازه استفاده می‌دهید؟",
+        "admin_new_user": "👤 درخواست دسترسی جدید\n\nنام: {name}\nآیدی: {id}\n\nآیا اجازه استفاده می‌دهید؟",
         "approved_btn": "✅ تایید",
         "rejected_btn": "❌ رد",
-        "admin_panel": "👑 **پنل مدیریت**\nلطفاً یک گزینه را انتخاب کنید:",
+        "admin_panel": "👑 پنل مدیریت\nلطفاً یک گزینه را انتخاب کنید:",
         "btn_broadcast": "📢 ارسال همگانی",
         "btn_stats": "📊 آمار ربات",
         "btn_lock": "🔒 قفل ربات",
@@ -100,7 +100,7 @@ TEXT = {
     },
     "en": {
         "choose_lang": "🌍 Please choose your language:",
-        "welcome": "✨ **Hello {name}!**\n\nWelcome to **NEXORA BOT**. 👋\nI am your all-in-one digital toolkit!\n\n⚡️ **My Tools:**\n📄 PDF Management\n🤖 AI & Translation\n⏰ Smart Reminders & Calendar\n\n👇 **Select an option below to start:**",
+        "welcome": "✨ Hello {name}!\n\nWelcome to NEXORA BOT. 👋\nI am your all-in-one digital toolkit!\n\n⚡️ My Tools:\n📄 PDF Management\n🤖 AI & Translation\n⏰ Smart Reminders & Calendar\n\n👇 Select an option below to start:",
         "language": "🌍 Change language",
         "support": "💬 Support",
         "img_pdf": "🖼️ Image to PDF",
@@ -126,13 +126,13 @@ TEXT = {
         "opt_pdf": "📝 Convert to PDF",
         "back": "🔙 Back to menu",
         "help": "📖 NEXORA BOT Help\n\n1. Choose a tool from the menu.\n2. Send the requested text or file.",
-        "about_text": "✨ **NEXORA BOT**\nVersion 9.5\nYour digital toolkit.\n\n👨‍💻 Developer: @DarkVenom404",
+        "about_text": "✨ NEXORA BOT\nVersion 9.5\nYour digital toolkit.\n\n👨‍💻 Developer: @DarkVenom404",
         "remind_help": "Reminder format:\n/remind 10m reminder text",
         "remind_bad": "❌ Invalid format. Example: /remind 10m Call back",
         "remind_ok": "✅ Reminder set for {when} from now.",
         "profile_text": "👤 Your Profile\n\nName: {name}\nID: {id}\nLanguage: {lang}\nJoined: {joined}\nActive reminders: {reminders}",
         "admin_only": "This command is for the bot administrator.",
-        "admin_stats": "📊 **Bot Stats**\n\n👥 Total Users: {users}\n✅ Approved: {approved}\n⏳ Pending: {pending}\n⏰ Active Reminders: {reminders}",
+        "admin_stats": "📊 Bot Stats\n\n👥 Total Users: {users}\n✅ Approved: {approved}\n⏳ Pending: {pending}\n⏰ Active Reminders: {reminders}",
         "translated": "🌐 Translation:\n\n{result}",
         "no_pdf_text": "❌ No text found. The PDF may contain scanned pages.",
         "rate_prompt": "⭐ Please rate this tool (1 to 5):",
@@ -145,10 +145,10 @@ TEXT = {
         "wait_approval": "⏳ Your account is pending review.\nPlease wait for admin approval.",
         "user_approved": "✅ Your account has been approved! You can now use the bot.",
         "user_rejected": "❌ Unfortunately, your access has been denied.",
-        "admin_new_user": "👤 **New Access Request**\n\nName: {name}\nID: `{id}`\n\nDo you allow access?",
+        "admin_new_user": "👤 New Access Request\n\nName: {name}\nID: {id}\n\nDo you allow access?",
         "approved_btn": "✅ Approve",
         "rejected_btn": "❌ Reject",
-        "admin_panel": "👑 **Admin Panel**\nPlease select an option:",
+        "admin_panel": "👑 Admin Panel\nPlease select an option:",
         "btn_broadcast": "📢 Broadcast",
         "btn_stats": "📊 Bot Stats",
         "btn_lock": "🔒 Lock Bot",
@@ -268,8 +268,7 @@ def show_home(chat_id, name=""):
     bot.send_message(
         chat_id,
         tr(chat_id, "welcome", name=name or "دوست عزیز"),
-        reply_markup=main_menu(chat_id),
-        parse_mode="Markdown"
+        reply_markup=main_menu(chat_id)
     )
 
 # =============== PDF SUPPORT ===============
@@ -385,7 +384,7 @@ def start_command(message):
                 types.InlineKeyboardButton(tr(admin_id, "rejected_btn"), callback_data=f"reject_{message.from_user.id}")
             )
             try:
-                bot.send_message(admin_id, tr(admin_id, "admin_new_user", name=message.from_user.first_name, id=message.from_user.id), reply_markup=markup, parse_mode="Markdown")
+                bot.send_message(admin_id, tr(admin_id, "admin_new_user", name=message.from_user.first_name, id=message.from_user.id), reply_markup=markup)
             except Exception:
                 pass
         return
@@ -524,7 +523,7 @@ def callback_handler(call):
         pending_count = len(db) - approved_count
         rem = load_json(REMINDERS_FILE)
         rem_count = sum(len(x) for x in rem.values() if isinstance(x, list))
-        bot.send_message(chat_id, tr(chat_id, "admin_stats", users=len(db), approved=approved_count, pending=pending_count, reminders=rem_count), parse_mode="Markdown")
+        bot.send_message(chat_id, tr(chat_id, "admin_stats", users=len(db), approved=approved_count, pending=pending_count, reminders=rem_count))
         return
     if data == "admin_lock" and user.id in ADMIN_IDS:
         save_json(MAINTENANCE_FILE, {"locked": True})
@@ -545,7 +544,7 @@ def callback_handler(call):
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton(TEXT[language(chat_id)]["profile"], callback_data="profile"))
         markup.add(types.InlineKeyboardButton(tr(chat_id, "back"), callback_data="home"))
-        bot.send_message(chat_id, tr(chat_id, "about_text"), reply_markup=markup, parse_mode="Markdown")
+        bot.send_message(chat_id, tr(chat_id, "about_text"), reply_markup=markup)
         return
     if data == "profile":
         db = load_json(DB_FILE)
@@ -664,9 +663,7 @@ def text_handler(message):
         except Exception:
             logger.exception("AI error")
             bot.send_message(chat_id, tr(chat_id, "error"), reply_markup=back_menu(chat_id))
-        return
-
-    user_text[str(chat_id)] = text
+        return    user_text[str(chat_id)] = text
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.row(types.InlineKeyboardButton(tr(chat_id, "opt_translate"), callback_data="do_translate"))
     markup.row(types.InlineKeyboardButton(tr(chat_id, "opt_pdf"), callback_data="do_pdf"))
