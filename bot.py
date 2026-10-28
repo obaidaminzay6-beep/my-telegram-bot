@@ -14,7 +14,9 @@ import telebot
 from telebot import types
 from PIL import Image, ImageOps
 import PyPDF2
-from fpdf import FPDF
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 import jdatetime
 import requests
 
@@ -184,32 +186,37 @@ def show_home(cid, name=""):
     user_modes.pop(str(cid), None)
     bot.send_message(cid, tr(cid,"welcome", name=name or "User"), reply_markup=main_menu(cid))
 
-# =============== PDF SUPPORT ===============
+# =============== PDF SUPPORT (REPORTLAB) ===============
 def make_pdf(text, out):
-    pdf = FPDF()
-    pdf.add_page()
-    
-    # مسیر دقیق فونت در سرور گیت‌هاب (اوبونتو)
-    font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-    
-    if os.path.isfile(font_path):
-        pdf.add_font("N", fname=font_path)
-        pdf.set_font("N", size=12)
-    else:
-        # اگر فونت نبود، از فونت پیش‌فرض استفاده کن (ممکنه فارسی خراب بشه)
-        pdf.set_font("Helvetica", size=12)
-
     try:
-        import arabic_reshaper
-        from bidi.algorithm import get_display
-        text = get_display(arabic_reshaper.reshape(text))
-    except: pass
-    
-    for line in text.splitlines() or [""]: 
-        try: pdf.multi_cell(0, 8, line)
+        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+        if os.path.isfile(font_path):
+            pdfmetrics.registerFont(TTFont('DejaVu', font_path))
+            font_name = 'DejaVu'
+        else:
+            font_name = 'Helvetica'
+
+        c = canvas.Canvas(str(out))
+        c.setFont(font_name, 12)
+        
+        try:
+            import arabic_reshaper
+            from bidi.algorithm import get_display
+            text = get_display(arabic_reshaper.reshape(text))
         except: pass
-    
-    pdf.output(str(out))
+        
+        y = 800
+        for line in text.splitlines() or [""]:
+            c.drawString(50, y, line)
+            y -= 20
+            if y < 50:
+                c.showPage()
+                c.setFont(font_name, 12)
+                y = 800
+        c.save()
+    except Exception as e:
+        logger.error(f"PDF Error: {e}")
+        raise e
 
 # =============== COMMANDS ===============
 @bot.message_handler(commands=['start'])
