@@ -1,5 +1,4 @@
 
-
 import os
 import re
 import json
@@ -9,6 +8,7 @@ import threading
 import tempfile
 import datetime
 import random
+import html
 from pathlib import Path
 
 import telebot
@@ -41,30 +41,11 @@ bot = telebot.TeleBot(TOKEN, threaded=True)
 user_modes = {}
 admin_broadcast_mode = set()
 
-# لیست سوالات کوییز (متنوع و غیر تکراری)
-QUIZ_QUESTIONS = [
-    {"q": "پایتخت افغانستان کدام شهر است؟", "options": ["هرات", "کابل", "قندهار", "مزار شریف"], "ans": 1},
-    {"q": "بزرگترین سیاره منظومه شمسی کدام است؟", "options": ["زحل", "مشتری", "نپتون", "زمین"], "ans": 1},
-    {"q": "آب در چه دمایی می‌جوشد؟", "options": ["50 درجه", "100 درجه", "150 درجه", "0 درجه"], "ans": 1},
-    {"q": "کدام حیوان سریع‌ترین حیوان خشکی است؟", "options": ["شیر", "یوزپلنگ", "اسب", "آهو"], "ans": 1},
-    {"q": "نویسنده کتاب 'بوف کور' کیست؟", "options": ["صادق هدایت", "احمد شاملو", "فروغ فرخزاد", "سیمین دانشور"], "ans": 0},
-    {"q": "کدام کشور بیشترین جمعیت جهان را دارد؟", "options": ["آمریکا", "چین", "هند", "روسیه"], "ans": 2},
-    {"q": "قاره استرالیا در کدام نیمکره قرار دارد؟", "options": ["شمالی", "جنوبی", "شرقی", "غربی"], "ans": 1},
-    {"q": "کدام فلز در دمای اتاق مایع است؟", "options": ["آهن", "جیوه", "طلا", "مس"], "ans": 1},
-    {"q": "چند ثانیه در یک ساعت وجود دارد؟", "options": ["3600", "600", "360", "7200"], "ans": 0},
-    {"q": "کدام یک از این‌ها زبان برنامه‌نویسی نیست؟", "options": ["Python", "Java", "HTML", "C++"], "ans": 2},
-    {"q": "بلندترین قله جهان چه نام دارد؟", "options": ["دماوند", "اورست", "کی۲", "آلپ"], "ans": 1},
-    {"q": "کدام کشور به سرزمین آفتاب تابان معروف است؟", "options": ["چین", "کره", "ژاپن", "تایلند"], "ans": 2},
-    {"q": "کدام گاز بیشترین سهم را در جو زمین دارد؟", "options": ["اکسیژن", "نیتروژن", "دی‌اکسید کربن", "هیدروژن"], "ans": 1},
-    {"q": "اولین انسان روی ماه چه کسی بود؟", "options": ["یوری گاگارین", "نیل آرمسترانگ", "باز آلدرین", "جان گلن"], "ans": 1},
-    {"q": "کدام یک از این حیوانات پستاندار است؟", "options": ["دلفین", "کوسه", "مار", "لاک‌پشت"], "ans": 0}
-]
-
 # =============== TEXTS ===============
 TEXT = {
     "fa": {
         "choose_lang": "🌍 لطفاً زبان خود را انتخاب کنید:",
-        "welcome": "✨ سلام {name} عزیز!\n\nبه NEXORA BOT خوش آمدی. 👋\n\n⚡️ ابزارهای من:\n📄 مدیریت PDF\n🤖 هوش مصنوعی و ترجمه\n⏰ یادآور و تقویم\n🧠 کوییز هوش\n\n👇 یکی از گزینه‌ها را انتخاب کن:",
+        "welcome": "✨ سلام {name} عزیز!\n\nبه NEXORA BOT خوش آمدی. 👋\n\n⚡️ ابزارهای من:\n📄 مدیریت PDF\n🤖 هوش مصنوعی و ترجمه\n⏰ یادآور و تقویم\n🧠 تست هوش\n\n👇 یکی از گزینه‌ها را انتخاب کن:",
         "language": "🌍 تغییر زبان",
         "img_pdf": "🖼️ عکس به PDF",
         "text_pdf": "📝 متن به PDF",
@@ -72,7 +53,7 @@ TEXT = {
         "ai_assistant": "🤖 دستیار هوش مصنوعی",
         "translate": "🌐 ترجمه متن",
         "date": "📅 تاریخ و ساعت",
-        "quiz": "🧠 کوییز هوش",
+        "iq_test": "🧠 تست هوش",
         "about": "ℹ️ درباره ربات",
         "prompt_img_pdf": "🖼️ عکس خود را بفرست تا به PDF تبدیل کنم.",
         "prompt_text_pdf": "📝 متن خود را بفرست تا به PDF تبدیل کنم.",
@@ -107,11 +88,14 @@ TEXT = {
         "no_pending": "✅ هیچ کاربری در انتظار تایید نیست.",
         "quiz_correct": "✅ آفرین! جواب درست بود.",
         "quiz_wrong": "❌ اشتباه بود! جواب درست: {correct}",
-        "quiz_next": "🎮 سوال بعدی:"
+        "quiz_finished": "🎉 تبریک! شما به همه سوالات پاسخ دادید. برای شروع مجدد، روی تست هوش بزنید.",
+        "quiz_title": "🧠 تست هوش\n\n❓ {q}",
+        "quiz_loading": "⏳ در حال دریافت سوال جدید...",
+        "quiz_error": "❌ خطا در دریافت سوال. لطفاً بعداً تلاش کنید."
     },
     "en": {
         "choose_lang": "🌍 Please choose your language:",
-        "welcome": "✨ Hello {name}!\n\nWelcome to NEXORA BOT. 👋\n\n⚡️ My Tools:\n📄 PDF Management\n🤖 AI & Translation\n⏰ Reminders & Calendar\n🧠 Trivia Quiz\n\n👇 Choose an option:",
+        "welcome": "✨ Hello {name}!\n\nWelcome to NEXORA BOT. 👋\n\n⚡️ My Tools:\n📄 PDF Management\n🤖 AI & Translation\n⏰ Reminders & Calendar\n🧠 IQ Test\n\n👇 Choose an option:",
         "language": "🌍 Change Language",
         "img_pdf": "🖼️ Image to PDF",
         "text_pdf": "📝 Text to PDF",
@@ -119,7 +103,7 @@ TEXT = {
         "ai_assistant": "🤖 AI Assistant",
         "translate": "🌐 Translate Text",
         "date": "📅 Date & Time",
-        "quiz": "🧠 Trivia Quiz",
+        "iq_test": "🧠 IQ Test",
         "about": "ℹ️ About",
         "prompt_img_pdf": "🖼️ Send an image to convert to PDF.",
         "prompt_text_pdf": "📝 Send text to convert to PDF.",
@@ -154,7 +138,10 @@ TEXT = {
         "no_pending": "✅ No pending users found.",
         "quiz_correct": "✅ Correct! Well done.",
         "quiz_wrong": "❌ Wrong! Correct answer: {correct}",
-        "quiz_next": "🎮 Next question:"
+        "quiz_finished": "🎉 Congratulations! You answered all questions. Tap IQ Test to start over.",
+        "quiz_title": "🧠 IQ Test\n\n❓ {q}",
+        "quiz_loading": "⏳ Fetching new question...",
+        "quiz_error": "❌ Error fetching question. Please try later."
     }
 }
 
@@ -176,7 +163,7 @@ def save_db(d):
 def get_user(cid):
     db = load_db()
     if str(cid) not in db:
-        db[str(cid)] = {"lang": "fa", "approved": cid in ADMIN_IDS, "joined": str(datetime.date.today())}
+        db[str(cid)] = {"lang": "fa", "approved": cid in ADMIN_IDS, "joined": str(datetime.date.today()), "quiz_token": ""}
         save_db(db)
     return db[str(cid)]
 
@@ -207,7 +194,7 @@ def main_menu(cid):
     m.row(types.InlineKeyboardButton(tr(cid,"pdf_text"), callback_data="mode_pdf"),
           types.InlineKeyboardButton(tr(cid,"translate"), callback_data="mode_trans"))
     m.row(types.InlineKeyboardButton(tr(cid,"ai_assistant"), callback_data="mode_ai"),
-          types.InlineKeyboardButton(tr(cid,"quiz"), callback_data="quiz_start"))
+          types.InlineKeyboardButton(tr(cid,"iq_test"), callback_data="quiz_start"))
     m.row(types.InlineKeyboardButton(tr(cid,"date"), callback_data="date"),
           types.InlineKeyboardButton(tr(cid,"language"), callback_data="lang"))
     m.row(types.InlineKeyboardButton(tr(cid,"about"), callback_data="about"))
@@ -220,21 +207,72 @@ def show_home(cid, name=""):
     user_modes.pop(str(cid), None)
     bot.send_message(cid, tr(cid,"welcome", name=name or "User"), reply_markup=main_menu(cid))
 
-# =============== QUIZ LOGIC ===============
+# =============== QUIZ LOGIC (ONLINE) ===============
+def translate_text(text):
+    try:
+        url = f"https://api.mymemory.translated.net/get?q={requests.utils.quote(text)}&langpair=en|fa"
+        r = requests.get(url, timeout=10).json()
+        return r["responseData"]["translatedText"]
+    except:
+        return text
+
 def send_quiz_question(cid):
-    q_data = random.choice(QUIZ_QUESTIONS)
-    q_text = q_data["q"]
-    opts = q_data["options"]
-    ans_idx = q_data["ans"]
+    lang = get_lang(cid)
+    db = load_db()
+    uid = str(cid)
+    token = db[uid].get("quiz_token", "")
     
-    m = types.InlineKeyboardMarkup(row_width=2)
-    buttons = []
-    for i, opt in enumerate(opts):
-        buttons.append(types.InlineKeyboardButton(opt, callback_data=f"quiz_ans_{i}_{ans_idx}"))
-    m.add(*buttons)
-    m.row(types.InlineKeyboardButton(tr(cid, "back"), callback_data="home"))
+    bot.send_message(cid, tr(cid, "quiz_loading"))
     
-    bot.send_message(cid, f"❓ {q_text}", reply_markup=m)
+    # درخواست سوال از Open Trivia DB
+    url = f"https://opentdb.com/api.php?amount=1&type=multiple&token={token}"
+    try:
+        r = requests.get(url, timeout=15).json()
+        res_code = r["response_code"]
+        
+        # اگر توکن منقضی شده یا همه سوالات تموم شده، توکن جدید بگیر
+        if res_code == 3 or res_code == 4:
+            token_url = "https://opentdb.com/api_token.php?command=request"
+            new_token = requests.get(token_url, timeout=10).json()["token"]
+            db[uid]["quiz_token"] = new_token
+            save_db(db)
+            # دوباره امتحان کن
+            url = f"https://opentdb.com/api.php?amount=1&type=multiple&token={new_token}"
+            r = requests.get(url, timeout=15).json()
+            
+        if r["response_code"] != 0 or not r["results"]:
+            bot.send_message(cid, tr(cid, "quiz_error"), reply_markup=back_menu(cid))
+            return
+            
+        q_data = r["results"][0]
+        q_text = html.unescape(q_data["question"])
+        correct_ans = html.unescape(q_data["correct_answer"])
+        incorrect_ans = [html.unescape(a) for a in q_data["incorrect_answers"]]
+        
+        # اگر زبان فارسی است، همه رو ترجمه کن
+        if lang == "fa":
+            q_text = translate_text(q_text)
+            correct_ans = translate_text(correct_ans)
+            incorrect_ans = [translate_text(a) for a in incorrect_ans]
+        
+        # مخلوط کردن گزینه‌ها
+        all_options = incorrect_ans + [correct_ans]
+        random.shuffle(all_options)
+        correct_idx = all_options.index(correct_ans)
+        
+        # ساخت دکمه‌ها
+        m = types.InlineKeyboardMarkup(row_width=2)
+        buttons = []
+        for i, opt in enumerate(all_options):
+            buttons.append(types.InlineKeyboardButton(opt, callback_data=f"quiz_ans_{i}_{correct_idx}_{correct_ans}"))
+        m.add(*buttons)
+        m.row(types.InlineKeyboardButton(tr(cid, "back"), callback_data="home"))
+        
+        bot.send_message(cid, tr(cid, "quiz_title", q=q_text), reply_markup=m)
+        
+    except Exception as e:
+        logger.error(f"Quiz Error: {e}")
+        bot.send_message(cid, tr(cid, "quiz_error"), reply_markup=back_menu(cid))
 
 # =============== PDF SUPPORT ===============
 def make_pdf(text, out):
@@ -373,18 +411,13 @@ def on_cb(c):
         parts = data.split("_")
         chosen = int(parts[2])
         correct = int(parts[3])
+        # استخراج متن جواب درست از کالبک
+        correct_text = "_".join(parts[4:])
         
         if chosen == correct:
             bot.send_message(cid, tr(cid, "quiz_correct"))
         else:
-            correct_text = "نامشخص"
-            # پیدا کردن متن گزینه صحیح از دیتای کوییز
-            for q in QUIZ_QUESTIONS:
-                if q["ans"] == correct and len(q["options"]) > correct:
-                    # اینجا یک حدس ساده میزنیم، اما چون آپشن‌ها تصادفی هستن ممکنه دقیق نباشه
-                    # برای دقت بالا، باید ایندکس رو ذخیره میکردیم، ولی برای سادگی همین کافیه
-                    pass
-            bot.send_message(cid, tr(cid, "quiz_wrong", correct=str(correct+1)))
+            bot.send_message(cid, tr(cid, "quiz_wrong", correct=correct_text))
         
         time.sleep(1.5)
         send_quiz_question(cid)
