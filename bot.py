@@ -277,25 +277,20 @@ def show_home(chat_id, name=""):
 def make_pdf(text, output):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
-    font_path = os.getenv("PDF_UNICODE_FONT", "").strip()
+    
+    # مسیر فونت در گیت‌هاب (اوبونتو)
+    font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    
+    # اگر فونت پیدا نشد، از مسیر ترموکس استفاده کن
+    if not os.path.isfile(font_path):
+        font_path = "/data/data/com.termux/files/usr/share/fonts/TTF/DejaVuSans.ttf"
 
-    candidates = [
-        font_path,
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/data/data/com.termux/files/usr/share/fonts/TTF/DejaVuSans.ttf",
-    ]
-    font = next((p for p in candidates if p and os.path.isfile(p)), None)
-    needs_unicode = any(ord(ch) > 127 for ch in text)
-
-    if needs_unicode and not font:
-        raise RuntimeError("Unicode font missing.")
+    if not os.path.isfile(font_path):
+        raise RuntimeError("Font missing.")
 
     pdf.add_page()
-    if font:
-        pdf.add_font("Nexora", fname=font)
-        pdf.set_font("Nexora", size=12)
-    else:
-        pdf.set_font("Helvetica", size=12)
+    pdf.add_font("Nexora", fname=font_path)
+    pdf.set_font("Nexora", size=12)
 
     try:
         import arabic_reshaper
