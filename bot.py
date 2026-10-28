@@ -1,5 +1,3 @@
-
-
 import os
 import re
 import json
@@ -18,18 +16,16 @@ from fpdf import FPDF
 import jdatetime
 import requests
 
-# =============== NEXORA BOT CONFIG ===============
+# =============== CONFIG ===============
 TOKEN = os.getenv("TOKEN", "").strip()
 if not TOKEN:
     raise RuntimeError("TOKEN is missing.")
 
-BOT_NAME = "NEXORA BOT v9.5"
+BOT_NAME = "NEXORA BOT v10.0"
 SUPPORT_LINK = os.getenv("SUPPORT_LINK", "https://t.me/DarkVenom404")
 ADMIN_IDS = {7210433916}
 
 DB_FILE = Path("user_data.json")
-REMINDERS_FILE = Path("reminders.json")
-RATINGS_FILE = Path("ratings.json")
 MAINTENANCE_FILE = Path("maintenance.json")
 MAX_FILE_MB = 20
 
@@ -37,16 +33,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(mes
 logger = logging.getLogger("nexora")
 bot = telebot.TeleBot(TOKEN, threaded=True)
 
-lock = threading.RLock()
 user_modes = {}
-user_text = {}
 admin_broadcast_mode = set()
 
-# =============== LANGUAGE TEXTS ===============
+# =============== TEXTS ===============
 TEXT = {
     "fa": {
         "choose_lang": "🌍 لطفاً زبان خود را انتخاب کنید:",
-        "welcome": "✨ سلام {name} عزیز!\n\nبه NEXORA BOT خوش آمدی. 👋\nمن جعبه‌ابزار دیجیتال همه‌کاره تو هستم!\n\n⚡️ ابزارهای من:\n📄 مدیریت فایل‌های PDF\n🤖 هوش مصنوعی و ترجمه\n⏰ یادآور هوشمند و تقویم\n\n👇 برای شروع، یکی از گزینه‌های زیر را انتخاب کن:",
+        "welcome": "✨ سلام {name} عزیز!\n\nبه NEXORA BOT خوش آمدی. 👋\n\n⚡️ ابزارهای من:\n📄 مدیریت PDF\n🤖 هوش مصنوعی و ترجمه\n⏰ یادآور و تقویم\n\n👇 یکی از گزینه‌ها را انتخاب کن:",
         "language": "🌍 تغییر زبان",
         "support": "💬 پشتیبانی",
         "img_pdf": "🖼️ عکس به PDF",
@@ -56,54 +50,38 @@ TEXT = {
         "translate": "🌐 ترجمه متن",
         "date": "📅 تاریخ و ساعت",
         "about": "ℹ️ درباره ربات",
-        "profile": "👤 پروفایل من",
         "prompt_img_pdf": "🖼️ عکس خود را بفرست تا به PDF تبدیل کنم.",
         "prompt_text_pdf": "📝 متن خود را بفرست تا به PDF تبدیل کنم.",
         "prompt_pdf_text": "📄 فایل PDF خود را بفرست.",
         "prompt_translate": "🌐 متن خود را برای ترجمه بفرست.",
-        "prompt_ai": "🤖 لطفاً سوال خود را بنویسید.\n(برای خروج روی بازگشت به منو بزنید)",
-        "processing": "⏳ در حال پردازش؛ لطفاً صبر کن.",
-        "done": "✅ عملیات با موفقیت انجام شد.",
-        "error": "❌ عملیات انجام نشد. دوباره امتحان کن.",
-        "bad_file": "❌ لطفاً فایل مناسب این ابزار را بفرست.",
-        "too_large": "❌ حجم فایل بیش از حد مجاز است.",
-        "text_options": "متن دریافت شد. انتخاب کن چه کاری انجام بدهم:",
-        "opt_translate": "🌐 ترجمه",
-        "opt_pdf": "📝 تبدیل به PDF",
+        "prompt_ai": "🤖 سوال خود را بنویسید.",
+        "done": "✅ انجام شد.",
+        "error": "❌ خطا! دوباره تلاش کنید.",
         "back": "🔙 بازگشت به منو",
-        "help": "📖 راهنمای NEXORA BOT\n\n۱. از منو یک ابزار انتخاب کن.\n۲. متن یا فایل مورد نیاز را بفرست.\n۳. برای بازگشت از دکمه خانه استفاده کن.",
-        "about_text": "✨ NEXORA BOT\nنسخه 9.5\nجعبه‌ابزار دیجیتال شما.\n\n👨‍💻 توسعه‌دهنده: @DarkVenom404",
-        "remind_help": "فرمت یادآوری:\n/remind 10m متن یادآوری\n\nواحدها: s ثانیه، m دقیقه، h ساعت، d روز",
-        "remind_bad": "❌ فرمت اشتباه است. مثال: /remind 10m تماس بگیر",
-        "remind_ok": "✅ یادآوری برای {when} دیگر تنظیم شد.",
-        "profile_text": "👤 پروفایل شما\n\nنام: {name}\nشناسه: {id}\nزبان: {lang}\nتاریخ عضویت: {joined}\nیادآورهای فعال: {reminders}",
-        "admin_only": "این فرمان مخصوص مدیر ربات است.",
-        "admin_stats": "📊 آمار ربات\n\n👥 کل کاربران: {users}\n✅ تایید شده: {approved}\n⏳ در انتظار تایید: {pending}\n⏰ یادآورهای فعال: {reminders}",
-        "translated": "🌐 ترجمه:\n\n{result}",
-        "no_pdf_text": "❌ متنی پیدا نشد؛ ممکن است PDF اسکن‌شده باشد.",
-        "rate_prompt": "⭐ لطفاً به این ابزار امتیاز بده (۱ تا ۵):",
-        "rate_thanks": "🙏 ممنون از امتیاز شما!",
-        "maintenance_msg": "🛠️ ربات موقتاً در حال تعمیر است. لطفاً بعداً مراجعه کنید.",
-        "broadcast_prompt": "📢 لطفاً پیام خود را برای ارسال همگانی بنویسید:",
-        "broadcast_done": "✅ پیام شما به {count} کاربر ارسال شد.",
-        "lock_done": "🔒 ربات قفل شد (حالت تعمیر).",
-        "unlock_done": "🔓 ربات از حالت تعمیر خارج شد.",
-        "wait_approval": "⏳ حساب شما در حال بررسی است.\nلطفاً منتظر تایید مدیر ربات بمانید.",
-        "user_approved": "✅ حساب شما تایید شد! اکنون می‌توانید از ربات استفاده کنید.",
-        "user_rejected": "❌ متاسفانه دسترسی شما به ربات رد شد.",
-        "admin_new_user": "👤 درخواست دسترسی جدید\n\nنام: {name}\nآیدی: {id}\n\nآیا اجازه استفاده می‌دهید؟",
+        "about_text": "✨ NEXORA BOT v10.0\nتوسعه‌دهنده: @DarkVenom404",
+        "admin_stats": "📊 آمار:\n\n👥 کاربران: {users}\n✅ تایید شده: {approved}\n⏳ در انتظار: {pending}",
+        "broadcast_prompt": "📢 متن پیام همگانی را بنویسید:",
+        "broadcast_done": "✅ به {count} کاربر ارسال شد.",
+        "lock_done": "🔒 ربات قفل شد.",
+        "unlock_done": "🔓 ربات باز شد.",
+        "wait_approval": "⏳ در انتظار تایید مدیر.",
+        "user_approved": "✅ حساب شما تایید شد!",
+        "user_rejected": "❌ دسترسی شما رد شد.",
+        "admin_new_user": "👤 کاربر جدید:\n\nنام: {name}\nآیدی: {id}\n\nاجازه می‌دهید؟",
         "approved_btn": "✅ تایید",
         "rejected_btn": "❌ رد",
-        "admin_panel": "👑 پنل مدیریت\nلطفاً یک گزینه را انتخاب کنید:",
+        "admin_panel": "👑 پنل مدیریت:",
         "btn_broadcast": "📢 ارسال همگانی",
-        "btn_stats": "📊 آمار ربات",
-        "btn_lock": "🔒 قفل ربات",
-        "btn_unlock": "🔓 باز کردن ربات"
+        "btn_stats": "📊 آمار",
+        "btn_lock": "🔒 قفل",
+        "btn_unlock": "🔓 باز کردن",
+        "trans_ans": "🌐 ترجمه:\n\n{ans}",
+        "ai_ans": "🤖 پاسخ:\n\n{ans}"
     },
     "en": {
         "choose_lang": "🌍 Please choose your language:",
-        "welcome": "✨ Hello {name}!\n\nWelcome to NEXORA BOT. 👋\nI am your all-in-one digital toolkit!\n\n⚡️ My Tools:\n📄 PDF Management\n🤖 AI & Translation\n⏰ Smart Reminders & Calendar\n\n👇 Select an option below to start:",
-        "language": "🌍 Change language",
+        "welcome": "✨ Hello {name}!\n\nWelcome to NEXORA BOT. 👋\n\n⚡️ My Tools:\n📄 PDF Management\n🤖 AI & Translation\n⏰ Reminders & Calendar\n\n👇 Choose an option:",
+        "language": "🌍 Change Language",
         "support": "💬 Support",
         "img_pdf": "🖼️ Image to PDF",
         "text_pdf": "📝 Text to PDF",
@@ -111,656 +89,336 @@ TEXT = {
         "ai_assistant": "🤖 AI Assistant",
         "translate": "🌐 Translate Text",
         "date": "📅 Date & Time",
-        "about": "ℹ️ About Bot",
-        "profile": "👤 My Profile",
+        "about": "ℹ️ About",
         "prompt_img_pdf": "🖼️ Send an image to convert to PDF.",
         "prompt_text_pdf": "📝 Send text to convert to PDF.",
         "prompt_pdf_text": "📄 Send a PDF file.",
         "prompt_translate": "🌐 Send text to translate.",
-        "prompt_ai": "🤖 Please type your question.\n(Click Back to Menu to exit)",
-        "processing": "⏳ Processing. Please wait.",
-        "done": "✅ Completed successfully.",
-        "error": "❌ Operation failed. Please try again.",
-        "bad_file": "❌ Please send a supported file.",
-        "too_large": "❌ File exceeds the size limit.",
-        "text_options": "Text received. Choose an action:",
-        "opt_translate": "🌐 Translate",
-        "opt_pdf": "📝 Convert to PDF",
+        "prompt_ai": "🤖 Write your question.",
+        "done": "✅ Done.",
+        "error": "❌ Error! Try again.",
         "back": "🔙 Back to menu",
-        "help": "📖 NEXORA BOT Help\n\n1. Choose a tool from the menu.\n2. Send the requested text or file.",
-        "about_text": "✨ NEXORA BOT\nVersion 9.5\nYour digital toolkit.\n\n👨‍💻 Developer: @DarkVenom404",
-        "remind_help": "Reminder format:\n/remind 10m reminder text",
-        "remind_bad": "❌ Invalid format. Example: /remind 10m Call back",
-        "remind_ok": "✅ Reminder set for {when} from now.",
-        "profile_text": "👤 Your Profile\n\nName: {name}\nID: {id}\nLanguage: {lang}\nJoined: {joined}\nActive reminders: {reminders}",
-        "admin_only": "This command is for the bot administrator.",
-        "admin_stats": "📊 Bot Stats\n\n👥 Total Users: {users}\n✅ Approved: {approved}\n⏳ Pending: {pending}\n⏰ Active Reminders: {reminders}",
-        "translated": "🌐 Translation:\n\n{result}",
-        "no_pdf_text": "❌ No text found. The PDF may contain scanned pages.",
-        "rate_prompt": "⭐ Please rate this tool (1 to 5):",
-        "rate_thanks": "🙏 Thanks for your rating!",
-        "maintenance_msg": "🛠️ Bot is under maintenance. Please try again later.",
-        "broadcast_prompt": "📢 Please enter your broadcast message:",
-        "broadcast_done": "✅ Message sent to {count} users.",
-        "lock_done": "🔒 Bot locked (maintenance mode).",
+        "about_text": "✨ NEXORA BOT v10.0\nDeveloper: @DarkVenom404",
+        "admin_stats": "📊 Stats:\n\n👥 Users: {users}\n✅ Approved: {approved}\n⏳ Pending: {pending}",
+        "broadcast_prompt": "📢 Enter broadcast message:",
+        "broadcast_done": "✅ Sent to {count} users.",
+        "lock_done": "🔒 Bot locked.",
         "unlock_done": "🔓 Bot unlocked.",
-        "wait_approval": "⏳ Your account is pending review.\nPlease wait for admin approval.",
-        "user_approved": "✅ Your account has been approved! You can now use the bot.",
-        "user_rejected": "❌ Unfortunately, your access has been denied.",
-        "admin_new_user": "👤 New Access Request\n\nName: {name}\nID: {id}\n\nDo you allow access?",
+        "wait_approval": "⏳ Waiting for admin approval.",
+        "user_approved": "✅ Your account approved!",
+        "user_rejected": "❌ Access denied.",
+        "admin_new_user": "👤 New user:\n\nName: {name}\nID: {id}\n\nAllow?",
         "approved_btn": "✅ Approve",
         "rejected_btn": "❌ Reject",
-        "admin_panel": "👑 Admin Panel\nPlease select an option:",
+        "admin_panel": "👑 Admin Panel:",
         "btn_broadcast": "📢 Broadcast",
-        "btn_stats": "📊 Bot Stats",
-        "btn_lock": "🔒 Lock Bot",
-        "btn_unlock": "🔓 Unlock Bot"
-    },
+        "btn_stats": "📊 Stats",
+        "btn_lock": "🔒 Lock",
+        "btn_unlock": "🔓 Unlock",
+        "trans_ans": "🌐 Translation:\n\n{ans}",
+        "ai_ans": "🤖 Answer:\n\n{ans}"
+    }
 }
 
-# =============== DATABASE ===============
-def load_json(path):
-    try:
-        with lock:
-            if path.exists():
-                with path.open("r", encoding="utf-8") as f:
-                    result = json.load(f)
-                    return result if isinstance(result, dict) else {}
-    except Exception:
-        logger.exception("Database read error: %s", path)
+def tr(cid, key, **kw):
+    lang = get_lang(cid)
+    return TEXT[lang].get(key, TEXT["en"][key]).format(**kw)
+
+# =============== DB ===============
+def load_db():
+    if DB_FILE.exists():
+        try:
+            with DB_FILE.open("r", encoding="utf-8") as f: return json.load(f)
+        except: pass
     return {}
 
-def save_json(path, data):
-    temp = path.with_suffix(path.suffix + ".tmp")
-    try:
-        with lock:
-            with temp.open("w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            os.replace(temp, path)
-    except Exception:
-        logger.exception("Database write error: %s", path)
+def save_db(d):
+    with DB_FILE.open("w", encoding="utf-8") as f: json.dump(d, f, ensure_ascii=False, indent=2)
 
-def language(chat_id):
-    db = load_json(DB_FILE)
-    return db.get(str(chat_id), {}).get("lang", "fa")
+def get_user(cid):
+    db = load_db()
+    if str(cid) not in db:
+        db[str(cid)] = {"lang": "fa", "approved": cid in ADMIN_IDS, "joined": str(datetime.date.today())}
+        save_db(db)
+    return db[str(cid)]
 
-def tr(chat_id, key, **kwargs):
-    lang = language(chat_id)
-    return TEXT.get(lang, TEXT["fa"]).get(key, TEXT["fa"].get(key, key)).format(**kwargs)
+def get_lang(cid): return get_user(cid).get("lang", "fa")
+def is_approved(cid): return cid in ADMIN_IDS or get_user(cid).get("approved", False)
 
-def register_user(user):
-    db = load_json(DB_FILE)
-    key = str(user.id)
-    is_new = key not in db
-    if is_new:
-        db[key] = {
-            "joined": datetime.datetime.now().strftime("%Y-%m-%d"),
-            "first_name": user.first_name or "",
-            "lang": "fa",
-            "approved": False if user.id not in ADMIN_IDS else True
-        }
-        save_json(DB_FILE, db)
-    else:
-        if db[key].get("first_name") != (user.first_name or ""):
-            db[key]["first_name"] = user.first_name or ""
-            save_json(DB_FILE, db)
-    return is_new
-
-def is_approved(user_id):
-    if user_id in ADMIN_IDS:
-        return True
-    db = load_json(DB_FILE)
-    return db.get(str(user_id), {}).get("approved", False)
-
-def set_language(chat_id, lang):
-    db = load_json(DB_FILE)
-    record = db.setdefault(str(chat_id), {
-        "joined": datetime.datetime.now().strftime("%Y-%m-%d"),
-        "approved": chat_id in ADMIN_IDS
-    })
-    record["lang"] = lang
-    save_json(DB_FILE, db)
-
-# =============== MAINTENANCE ===============
-def is_locked():
-    return load_json(MAINTENANCE_FILE).get("locked", False)
+def check_lock(cid, uid):
+    if uid in ADMIN_IDS: return True
+    if MAINTENANCE_FILE.exists():
+        try:
+            with MAINTENANCE_FILE.open("r") as f:
+                if json.load(f).get("locked"): 
+                    bot.send_message(cid, "🛠️ ربات در حال تعمیر است."); return False
+        except: pass
+    return True
 
 # =============== MENUS ===============
 def lang_menu():
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    markup.row(
-        types.InlineKeyboardButton("🇮🇷 فارسی", callback_data="setlang_fa"),
-        types.InlineKeyboardButton("🇬🇧 English", callback_data="setlang_en")
-    )
-    return markup
+    m = types.InlineKeyboardMarkup(row_width=2)
+    m.row(types.InlineKeyboardButton("🇮🇷 فارسی", callback_data="lang_fa"),
+          types.InlineKeyboardButton("🇬🇧 English", callback_data="lang_en"))
+    return m
 
-def main_menu(chat_id):
-    labels = TEXT[language(chat_id)]
-    markup = types.InlineKeyboardMarkup(row_width=2)
+def main_menu(cid):
+    m = types.InlineKeyboardMarkup(row_width=2)
+    m.row(types.InlineKeyboardButton(tr(cid,"img_pdf"), callback_data="mode_img"),
+          types.InlineKeyboardButton(tr(cid,"text_pdf"), callback_data="mode_text"))
+    m.row(types.InlineKeyboardButton(tr(cid,"pdf_text"), callback_data="mode_pdf"),
+          types.InlineKeyboardButton(tr(cid,"translate"), callback_data="mode_trans"))
+    m.row(types.InlineKeyboardButton(tr(cid,"ai_assistant"), callback_data="mode_ai"),
+          types.InlineKeyboardButton(tr(cid,"date"), callback_data="date"))
+    m.row(types.InlineKeyboardButton(tr(cid,"language"), callback_data="lang"),
+          types.InlineKeyboardButton(tr(cid,"support"), url=SUPPORT_LINK))
+    m.row(types.InlineKeyboardButton(tr(cid,"about"), callback_data="about"))
+    return m
 
-    markup.row(
-        types.InlineKeyboardButton(labels["img_pdf"], callback_data="img_to_pdf"),
-        types.InlineKeyboardButton(labels["text_pdf"], callback_data="text_to_pdf")
-    )
-    markup.row(
-        types.InlineKeyboardButton(labels["pdf_text"], callback_data="pdf_to_text"),
-        types.InlineKeyboardButton(labels["translate"], callback_data="translate")
-    )
-    markup.row(
-        types.InlineKeyboardButton(labels["ai_assistant"], callback_data="ai_assistant"),
-        types.InlineKeyboardButton(labels["date"], callback_data="date")
-    )
-    markup.row(
-        types.InlineKeyboardButton(labels["language"], callback_data="language"),
-        types.InlineKeyboardButton(labels["support"], url=SUPPORT_LINK)
-    )
-    markup.row(
-        types.InlineKeyboardButton(labels["about"], callback_data="about")
-    )
-    return markup
+def back_menu(cid):
+    return types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(tr(cid,"back"), callback_data="home"))
 
-def back_menu(chat_id):
-    return types.InlineKeyboardMarkup().add(
-        types.InlineKeyboardButton(tr(chat_id, "back"), callback_data="home")
-    )
-
-def show_home(chat_id, name=""):
-    user_modes.pop(str(chat_id), None)
-    user_text.pop(str(chat_id), None)
-    bot.send_message(
-        chat_id,
-        tr(chat_id, "welcome", name=name or "دوست عزیز"),
-        reply_markup=main_menu(chat_id)
-    )
+def show_home(cid, name=""):
+    user_modes.pop(str(cid), None)
+    bot.send_message(cid, tr(cid,"welcome", name=name or "User"), reply_markup=main_menu(cid))
 
 # =============== PDF SUPPORT ===============
-def make_pdf(text, output):
+def make_pdf(text, out):
     pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    
-    # مسیر فونت در گیت‌هاب (اوبونتو)
-    font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-    
-    # اگر فونت پیدا نشد، از مسیر ترموکس استفاده کن
-    if not os.path.isfile(font_path):
-        font_path = "/data/data/com.termux/files/usr/share/fonts/TTF/DejaVuSans.ttf"
-
-    if not os.path.isfile(font_path):
-        raise RuntimeError("Font missing.")
-
     pdf.add_page()
-    pdf.add_font("Nexora", fname=font_path)
-    pdf.set_font("Nexora", size=12)
+    font = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    if not os.path.isfile(font): font = "/data/data/com.termux/files/usr/share/fonts/TTF/DejaVuSans.ttf"
+    
+    if os.path.isfile(font):
+        pdf.add_font("N", fname=font); pdf.set_font("N", size=12)
+    else:
+        pdf.set_font("Helvetica", size=12)
 
     try:
         import arabic_reshaper
         from bidi.algorithm import get_display
-        shape = lambda s: get_display(arabic_reshaper.reshape(s))
-    except ImportError:
-        shape = lambda s: s
-
-    for line in text.splitlines() or [""]:
-        pdf.multi_cell(0, 8, shape(line))
-    pdf.output(str(output))
-
-# =============== REMINDERS ===============
-def reminder_worker():
-    while True:
-        try:
-            reminders = load_json(REMINDERS_FILE)
-            now = time.time()
-            changed = False
-            for chat_id, items in list(reminders.items()):
-                pending = []
-                for item in items if isinstance(items, list) else []:
-                    if now >= float(item.get("time", 0)):
-                        try:
-                            bot.send_message(int(chat_id), "⏰ " + item.get("text", "یادآوری"))
-                            changed = True
-                        except Exception:
-                            pending.append(item)
-                    else:
-                        pending.append(item)
-                reminders[chat_id] = pending
-            if changed:
-                save_json(REMINDERS_FILE, reminders)
-        except Exception:
-            logger.exception("Reminder worker error")
-        time.sleep(10)
-
-threading.Thread(target=reminder_worker, daemon=True, name="reminder-worker").start()
-
-@bot.message_handler(commands=["remind"])
-def reminder_command(message):
-    register_user(message.from_user)
-    if not check_lock(message.chat.id, message.from_user.id): return
-    if not is_approved(message.from_user.id):
-        bot.reply_to(message, tr(message.chat.id, "wait_approval"))
-        return
-        
-    parts = message.text.split(maxsplit=2)
-    if len(parts) < 3:
-        bot.reply_to(message, tr(message.chat.id, "remind_help"))
-        return
-    match = re.fullmatch(r"([1-9]\d{0,5})([smhd])", parts[1].lower())
-    if not match:
-        bot.reply_to(message, tr(message.chat.id, "remind_bad"))
-        return
-    amount = int(match.group(1))
-    unit = match.group(2)
-    multiplier = {"s": 1, "m": 60, "h": 3600, "d": 86400}
-    seconds = amount * multiplier[unit]
-    if seconds > 365 * 86400:
-        bot.reply_to(message, tr(message.chat.id, "remind_bad"))
-        return
-    reminders = load_json(REMINDERS_FILE)
-    key = str(message.chat.id)
-    reminders.setdefault(key, []).append({"text": parts[2], "time": time.time() + seconds})
-    save_json(REMINDERS_FILE, reminders)
-    bot.reply_to(message, tr(message.chat.id, "remind_ok", when=parts[1]))
-
-# =============== LOCK CHECK ===============
-def check_lock(chat_id, user_id):
-    if is_locked() and user_id not in ADMIN_IDS:
-        bot.send_message(chat_id, tr(chat_id, "maintenance_msg"))
-        return False
-    return True
+        text = get_display(arabic_reshaper.reshape(text))
+    except: pass
+    
+    for line in text.splitlines() or [""]: pdf.multi_cell(0, 8, line)
+    pdf.output(str(out))
 
 # =============== COMMANDS ===============
-@bot.message_handler(commands=["start"])
-def start_command(message):
-    is_new = register_user(message.from_user)
-    if not check_lock(message.chat.id, message.from_user.id): return
+@bot.message_handler(commands=['start'])
+def cmd_start(m):
+    uid = m.from_user.id
+    is_new = str(uid) not in load_db()
+    get_user(uid)
+    if not check_lock(m.chat.id, uid): return
     
-    if is_new and message.from_user.id not in ADMIN_IDS:
-        bot.send_message(message.chat.id, tr(message.chat.id, "choose_lang"), reply_markup=lang_menu())
+    if is_new and uid not in ADMIN_IDS:
+        bot.send_message(m.chat.id, tr(m.chat.id,"choose_lang"), reply_markup=lang_menu())
         for admin_id in ADMIN_IDS:
-            markup = types.InlineKeyboardMarkup()
-            markup.add(
-                types.InlineKeyboardButton(tr(admin_id, "approved_btn"), callback_data=f"approve_{message.from_user.id}"),
-                types.InlineKeyboardButton(tr(admin_id, "rejected_btn"), callback_data=f"reject_{message.from_user.id}")
-            )
-            try:
-                bot.send_message(admin_id, tr(admin_id, "admin_new_user", name=message.from_user.first_name, id=message.from_user.id), reply_markup=markup)
-            except Exception:
-                pass
-        return
-
-    if not is_approved(message.from_user.id):
-        bot.send_message(message.chat.id, tr(message.chat.id, "wait_approval"))
-        return
-        
-    show_home(message.chat.id, message.from_user.first_name)
-
-@bot.message_handler(commands=["language"])
-def language_command(message):
-    register_user(message.from_user)
-    bot.send_message(message.chat.id, tr(message.chat.id, "choose_lang"), reply_markup=lang_menu())
-
-@bot.message_handler(commands=["panel"])
-def admin_panel(message):
-    if message.from_user.id not in ADMIN_IDS:
-        bot.reply_to(message, tr(message.chat.id, "admin_only"))
+            m2 = types.InlineKeyboardMarkup()
+            m2.add(types.InlineKeyboardButton(tr(admin_id,"approved_btn"), callback_data=f"appr_{uid}"),
+                   types.InlineKeyboardButton(tr(admin_id,"rejected_btn"), callback_data=f"rej_{uid}"))
+            try: bot.send_message(admin_id, tr(admin_id,"admin_new_user", name=m.from_user.first_name, id=uid), reply_markup=m2)
+            except: pass
         return
     
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    markup.row(
-        types.InlineKeyboardButton(tr(message.chat.id, "btn_broadcast"), callback_data="admin_broadcast"),
-        types.InlineKeyboardButton(tr(message.chat.id, "btn_stats"), callback_data="admin_stats")
-    )
-    markup.row(
-        types.InlineKeyboardButton(tr(message.chat.id, "btn_lock"), callback_data="admin_lock"),
-        types.InlineKeyboardButton(tr(message.chat.id, "btn_unlock"), callback_data="admin_unlock")
-    )
-    markup.row(types.InlineKeyboardButton(tr(message.chat.id, "back"), callback_data="home"))
-    bot.send_message(message.chat.id, tr(message.chat.id, "admin_panel"), reply_markup=markup)
+    if not is_approved(uid):
+        bot.send_message(m.chat.id, tr(m.chat.id,"wait_approval")); return
+    
+    show_home(m.chat.id, m.from_user.first_name)
 
-@bot.message_handler(commands=["help"])
-def help_command(message):
-    register_user(message.from_user)
-    if not check_lock(message.chat.id, message.from_user.id): return
-    if not is_approved(message.from_user.id):
-        bot.send_message(message.chat.id, tr(message.chat.id, "wait_approval"))
-        return
-    bot.send_message(message.chat.id, tr(message.chat.id, "help"), reply_markup=back_menu(message.chat.id))
+@bot.message_handler(commands=['panel'])
+def cmd_panel(m):
+    if m.from_user.id not in ADMIN_IDS: return
+    kb = types.InlineKeyboardMarkup(row_width=2)
+    kb.row(types.InlineKeyboardButton(tr(m.chat.id,"btn_broadcast"), callback_data="adm_bcast"),
+           types.InlineKeyboardButton(tr(m.chat.id,"btn_stats"), callback_data="adm_stats"))
+    kb.row(types.InlineKeyboardButton(tr(m.chat.id,"btn_lock"), callback_data="adm_lock"),
+           types.InlineKeyboardButton(tr(m.chat.id,"btn_unlock"), callback_data="adm_unlock"))
+    kb.row(types.InlineKeyboardButton(tr(m.chat.id,"back"), callback_data="home"))
+    bot.send_message(m.chat.id, tr(m.chat.id,"admin_panel"), reply_markup=kb)
 
-@bot.message_handler(commands=["cancel"])
-def cancel_command(message):
-    if not check_lock(message.chat.id, message.from_user.id): return
-    user_modes.pop(str(message.chat.id), None)
-    user_text.pop(str(message.chat.id), None)
-    admin_broadcast_mode.discard(message.from_user.id)
-    bot.send_message(message.chat.id, "✅ " + tr(message.chat.id, "back"), reply_markup=main_menu(message.chat.id))
+# =============== CALLBACKS ===============
+@bot.callback_query_handler(func=lambda c: True)
+def on_cb(c):
+    cid = c.message.chat.id
+    uid = c.from_user.id
+    data = c.data
+    bot.answer_callback_query(c.id)
 
-# =============== BROADCAST ===============
-def send_broadcast(message):
-    admin_broadcast_mode.discard(message.from_user.id)
-    if message.from_user.id not in ADMIN_IDS: return
-    users = load_json(DB_FILE)
-    count = 0
-    for chat_id in users.keys():
-        try:
-            bot.send_message(chat_id, message.text)
-            count += 1
-            time.sleep(0.05)
-        except Exception:
-            pass
-    bot.reply_to(message, tr(message.chat.id, "broadcast_done", count=count))
-
-# =============== RATING ===============
-def ask_rating(chat_id):
-    markup = types.InlineKeyboardMarkup(row_width=5)
-    for i in range(1, 6):
-        markup.add(types.InlineKeyboardButton("⭐" * i, callback_data=f"rate_{i}"))
-    bot.send_message(chat_id, tr(chat_id, "rate_prompt"), reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("rate_"))
-def handle_rating(call):
-    chat_id = call.message.chat.id
-    rating = int(call.data.split("_")[1])
-    ratings = load_json(RATINGS_FILE)
-    ratings.setdefault(str(chat_id), []).append(rating)
-    save_json(RATINGS_FILE, ratings)
-    bot.answer_callback_query(call.id, tr(chat_id, "rate_thanks"))
-    bot.edit_message_text(tr(chat_id, "rate_thanks"), chat_id, call.message.message_id)
-
-# =============== BUTTON HANDLER ===============
-@bot.callback_query_handler(func=lambda call: True)
-def callback_handler(call):
-    chat_id = call.message.chat.id
-    user = call.from_user
-    register_user(user)
-    bot.answer_callback_query(call.id)
-
-    if call.data.startswith("approve_") and user.id in ADMIN_IDS:
-        uid = call.data.split("_")[1]
-        db = load_json(DB_FILE)
-        if uid in db:
-            db[uid]["approved"] = True
-            save_json(DB_FILE, db)
-            try: bot.send_message(uid, tr(uid, "user_approved"))
+    if data.startswith("appr_") and uid in ADMIN_IDS:
+        t_uid = data.split("_")[1]
+        db = load_db()
+        if t_uid in db:
+            db[t_uid]["approved"] = True; save_db(db)
+            try: bot.send_message(t_uid, tr(t_uid,"user_approved"))
             except: pass
-            bot.edit_message_text(f"✅ User {uid} approved.", chat_id, call.message.message_id)
+            bot.edit_message_text("✅ Approved.", cid, c.message.message_id)
         return
-    if call.data.startswith("reject_") and user.id in ADMIN_IDS:
-        uid = call.data.split("_")[1]
-        db = load_json(DB_FILE)
-        if uid in db:
-            db[uid]["approved"] = False
-            save_json(DB_FILE, db)
-            try: bot.send_message(uid, tr(uid, "user_rejected"))
+    if data.startswith("rej_") and uid in ADMIN_IDS:
+        t_uid = data.split("_")[1]
+        db = load_db()
+        if t_uid in db:
+            db[t_uid]["approved"] = False; save_db(db)
+            try: bot.send_message(t_uid, tr(t_uid,"user_rejected"))
             except: pass
-            bot.edit_message_text(f"❌ User {uid} rejected.", chat_id, call.message.message_id)
+            bot.edit_message_text("❌ Rejected.", cid, c.message.message_id)
         return
 
-    if call.data.startswith("setlang_"):
-        lang = call.data.split("_")[1]
-        set_language(chat_id, lang)
-        bot.delete_message(chat_id, call.message.message_id)
-        if is_approved(user.id):
-            show_home(chat_id, user.first_name)
-        else:
-            bot.send_message(chat_id, tr(chat_id, "wait_approval"))
+    if data.startswith("lang_"):
+        lang = data.split("_")[1]
+        db = load_db(); db[str(cid)]["lang"] = lang; save_db(db)
+        bot.delete_message(cid, c.message.message_id)
+        if is_approved(uid): show_home(cid, c.from_user.first_name)
+        else: bot.send_message(cid, tr(cid,"wait_approval"))
         return
 
-    if not check_lock(chat_id, user.id): return
-    if not is_approved(user.id):
-        bot.send_message(chat_id, tr(chat_id, "wait_approval"))
-        return
-
-    data = call.data
-
-    if data == "admin_broadcast" and user.id in ADMIN_IDS:
-        admin_broadcast_mode.add(user.id)
-        bot.send_message(chat_id, tr(chat_id, "broadcast_prompt"))
-        return
-    if data == "admin_stats" and user.id in ADMIN_IDS:
-        db = load_json(DB_FILE)
-        approved_count = sum(1 for u in db.values() if u.get("approved"))
-        pending_count = len(db) - approved_count
-        rem = load_json(REMINDERS_FILE)
-        rem_count = sum(len(x) for x in rem.values() if isinstance(x, list))
-        bot.send_message(chat_id, tr(chat_id, "admin_stats", users=len(db), approved=approved_count, pending=pending_count, reminders=rem_count))
-        return
-    if data == "admin_lock" and user.id in ADMIN_IDS:
-        save_json(MAINTENANCE_FILE, {"locked": True})
-        bot.send_message(chat_id, tr(chat_id, "lock_done"))
-        return
-    if data == "admin_unlock" and user.id in ADMIN_IDS:
-        save_json(MAINTENANCE_FILE, {"locked": False})
-        bot.send_message(chat_id, tr(chat_id, "unlock_done"))
-        return
+    if not check_lock(cid, uid): return
+    if not is_approved(uid):
+        bot.send_message(cid, tr(cid,"wait_approval")); return
 
     if data == "home":
-        show_home(chat_id, user.first_name)
-        return
-    if data == "language":
-        bot.send_message(chat_id, tr(chat_id, "choose_lang"), reply_markup=lang_menu())
-        return
+        show_home(cid, c.from_user.first_name); return
+    if data == "lang":
+        bot.send_message(cid, tr(cid,"choose_lang"), reply_markup=lang_menu()); return
     if data == "about":
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton(TEXT[language(chat_id)]["profile"], callback_data="profile"))
-        markup.add(types.InlineKeyboardButton(tr(chat_id, "back"), callback_data="home"))
-        bot.send_message(chat_id, tr(chat_id, "about_text"), reply_markup=markup)
-        return
-    if data == "profile":
-        db = load_json(DB_FILE)
-        record = db.get(str(chat_id), {})
-        reminders = load_json(REMINDERS_FILE).get(str(chat_id), [])
-        bot.send_message(chat_id, tr(chat_id, "profile_text", name=user.first_name or "—", id=chat_id, lang=language(chat_id), joined=record.get("joined", "—"), reminders=len(reminders)), reply_markup=back_menu(chat_id))
-        return
+        bot.send_message(cid, tr(cid,"about_text"), reply_markup=back_menu(cid)); return
     if data == "date":
         now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=4, minutes=30)))
-        shamsi = jdatetime.datetime.fromgregorian(datetime=now.replace(tzinfo=None))
-        
-        lang = language(chat_id)
-        if lang == "fa":
-            days_fa = {"Saturday": "شنبه", "Sunday": "یکشنبه", "Monday": "دوشنبه", "Tuesday": "سه‌شنبه", "Wednesday": "چهارشنبه", "Thursday": "پنجشنبه", "Friday": "جمعه"}
-            day_name = days_fa.get(shamsi.strftime('%A'), shamsi.strftime('%A'))
-            txt = f"📅 تاریخ افغانستان\n\nشمسی: {shamsi.strftime('%Y/%m/%d')}\nمیلادی: {now.strftime('%Y-%m-%d')}\nساعت: {now.strftime('%H:%M:%S')}\nروز: {day_name}"
-        else:
-            txt = f"📅 Date & Time\n\nShamsi: {shamsi.strftime('%Y/%m/%d')}\nGregorian: {now.strftime('%Y-%m-%d')}\nTime: {now.strftime('%H:%M:%S')}\nDay: {shamsi.strftime('%A')}"
-        bot.send_message(chat_id, txt, reply_markup=back_menu(chat_id))
+        sh = jdatetime.datetime.fromgregorian(datetime=now.replace(tzinfo=None))
+        bot.send_message(cid, f"📅 {sh.strftime('%Y/%m/%d')}\n⏰ {now.strftime('%H:%M:%S')}", reply_markup=back_menu(cid))
         return
 
-    modes = {
-        "img_to_pdf": "prompt_img_pdf",
-        "text_to_pdf": "prompt_text_pdf",
-        "pdf_to_text": "prompt_pdf_text",
-        "translate": "prompt_translate",
-        "ai_assistant": "prompt_ai"
+    # --- ADMIN PANEL ---
+    if data == "adm_bcast" and uid in ADMIN_IDS:
+        admin_broadcast_mode.add(uid)
+        bot.send_message(cid, tr(cid,"broadcast_prompt")); return
+    if data == "adm_stats" and uid in ADMIN_IDS:
+        db = load_db()
+        appr = sum(1 for u in db.values() if u.get("approved"))
+        bot.send_message(cid, tr(cid,"admin_stats", users=len(db), approved=appr, pending=len(db)-appr)); return
+    if data == "adm_lock" and uid in ADMIN_IDS:
+        with MAINTENANCE_FILE.open("w") as f: json.dump({"locked":True}, f)
+        bot.send_message(cid, tr(cid,"lock_done")); return
+    if data == "adm_unlock" and uid in ADMIN_IDS:
+        with MAINTENANCE_FILE.open("w") as f: json.dump({"locked":False}, f)
+        bot.send_message(cid, tr(cid,"unlock_done")); return
+
+    # --- SET MODES (CRITICAL FIX) ---
+    modes_map = {
+        "mode_img": ("prompt_img_pdf", "img"),
+        "mode_text": ("prompt_text_pdf", "text"),
+        "mode_pdf": ("prompt_pdf_text", "pdf"),
+        "mode_trans": ("prompt_translate", "trans"),
+        "mode_ai": ("prompt_ai", "ai")
     }
-    if data in modes:
-        user_modes[str(chat_id)] = data
-        bot.send_message(chat_id, tr(chat_id, modes[data]), reply_markup=back_menu(chat_id))
+    if data in modes_map:
+        user_modes[str(cid)] = modes_map[data][1]
+        bot.send_message(cid, tr(cid, modes_map[data][0]), reply_markup=back_menu(cid))
         return
 
-    if data == "do_pdf":
-        text = user_text.get(str(chat_id))
-        if not text:
-            bot.send_message(chat_id, tr(chat_id, "error"))
-            return
+# =============== MESSAGE HANDLERS ===============
+@bot.message_handler(func=lambda m: m.text and not m.text.startswith('/'))
+def on_text(m):
+    cid = m.chat.id
+    uid = m.from_user.id
+    
+    if uid in admin_broadcast_mode:
+        admin_broadcast_mode.discard(uid)
+        db = load_db()
+        cnt = 0
+        for u in db.keys():
+            try: bot.send_message(u, m.text); cnt += 1; time.sleep(0.05)
+            except: pass
+        bot.reply_to(m, tr(cid,"broadcast_done", count=cnt)); return
+
+    if not check_lock(cid, uid): return
+    if not is_approved(uid):
+        bot.send_message(cid, tr(cid,"wait_approval")); return
+
+    mode = user_modes.get(str(cid))
+    if not mode:
+        show_home(cid, m.from_user.first_name)
+        return
+
+    # --- AI MODE ---
+    if mode == "ai":
+        try:
+            r = requests.post("https://text.pollinations.ai/", json={"messages": [{"role": "user", "content": m.text}]}, timeout=30)
+            ans = r.text
+            bot.send_message(cid, tr(cid,"ai_ans", ans=ans), reply_markup=back_menu(cid))
+        except:
+            bot.send_message(cid, tr(cid,"error"), reply_markup=back_menu(cid))
+        user_modes.pop(str(cid), None)
+        return
+
+    # --- TRANSLATE MODE ---
+    if mode == "trans":
+        try:
+            dest = "fa" if get_lang(cid) == "fa" else "en"
+            url = f"https://api.mymemory.translated.net/get?q={requests.utils.quote(m.text)}&langpair=en|{dest}" if dest=="fa" else f"https://api.mymemory.translated.net/get?q={requests.utils.quote(m.text)}&langpair=fa|en"
+            r = requests.get(url, timeout=15).json()
+            ans = r["responseData"]["translatedText"]
+            bot.send_message(cid, tr(cid,"trans_ans", ans=ans), reply_markup=back_menu(cid))
+        except:
+            bot.send_message(cid, tr(cid,"error"), reply_markup=back_menu(cid))
+        user_modes.pop(str(cid), None)
+        return
+
+    # --- TEXT TO PDF MODE ---
+    if mode == "text":
         try:
             with tempfile.TemporaryDirectory() as td:
-                path = Path(td) / "text.pdf"
-                make_pdf(text, path)
-                with path.open("rb") as f: bot.send_document(chat_id, f, caption=tr(chat_id, "done"))
-            ask_rating(chat_id)
-        except Exception:
-            logger.exception("Text to PDF error")
-            bot.send_message(chat_id, tr(chat_id, "error"))
+                p = Path(td) / "out.pdf"
+                make_pdf(m.text, p)
+                with p.open("rb") as f:
+                    bot.send_document(cid, f, caption=tr(cid,"done"), reply_markup=back_menu(cid))
+        except:
+            bot.send_message(cid, tr(cid,"error"), reply_markup=back_menu(cid))
+        user_modes.pop(str(cid), None)
         return
 
-# =============== TEXT HANDLER ===============
-@bot.message_handler(func=lambda m: bool(m.text) and not m.text.startswith("/"))
-def text_handler(message):
-    chat_id = message.chat.id
-    user_id = message.from_user.id
-    register_user(message.from_user)
+@bot.message_handler(content_types=['photo', 'document'])
+def on_media(m):
+    cid = m.chat.id
+    uid = m.from_user.id
+    if not check_lock(cid, uid): return
+    if not is_approved(uid):
+        bot.send_message(cid, tr(cid,"wait_approval")); return
+
+    mode = user_modes.get(str(cid))
     
-    if user_id in admin_broadcast_mode:
-        send_broadcast(message)
-        return
-
-    if not check_lock(chat_id, user_id): return
-    if not is_approved(user_id):
-        bot.send_message(chat_id, tr(chat_id, "wait_approval"))
-        return
-        
-    mode = user_modes.get(str(chat_id))
-    text = message.text
-    labels = TEXT[language(chat_id)]
-
-    if text in {labels["help_btn"], "ℹ️ راهنما", "ℹ️ Help", "راهنما", "Help"}:
-        bot.send_message(chat_id, tr(chat_id, "help"), reply_markup=back_menu(chat_id))
-        return
-
-    if mode == "translate":
+    if mode == "img" and m.content_type == 'photo':
         try:
-            dest = "fa" if language(chat_id) == "fa" else "en"
-            url = f"https://api.mymemory.translated.net/get?q={requests.utils.quote(text)}&langpair=en|{dest}" if dest=="fa" else f"https://api.mymemory.translated.net/get?q={requests.utils.quote(text)}&langpair=fa|en"
-            response = requests.get(url, timeout=15)
-            data = response.json()
-            result_text = data["responseData"]["translatedText"]
-            
-            bot.send_message(chat_id, tr(chat_id, "translated", result=result_text), reply_markup=back_menu(chat_id))
-            ask_rating(chat_id)
-        except Exception:
-            logger.exception("Translation error")
-            bot.send_message(chat_id, tr(chat_id, "error"))
-        user_modes.pop(str(chat_id), None)
-        return
-
-    if mode == "text_to_pdf":
-        try:
+            info = bot.get_file(m.photo[-1].file_id)
+            data = bot.download_file(info.file_path)
             with tempfile.TemporaryDirectory() as td:
-                path = Path(td) / "text.pdf"
-                make_pdf(text, path)
-                with path.open("rb") as f:
-                    bot.send_document(chat_id, f, caption=tr(chat_id, "done"), reply_markup=back_menu(chat_id))
-            ask_rating(chat_id)
-        except Exception:
-            logger.exception("Text to PDF error")
-            bot.send_message(chat_id, tr(chat_id, "error"))
-        user_modes.pop(str(chat_id), None)
+                src = Path(td) / "in.jpg"; out = Path(td) / "out.pdf"
+                src.write_bytes(data)
+                with Image.open(src) as img: img.convert("RGB").save(out, "PDF")
+                with out.open("rb") as f: bot.send_document(cid, f, caption=tr(cid,"done"), reply_markup=back_menu(cid))
+        except:
+            bot.send_message(cid, tr(cid,"error"), reply_markup=back_menu(cid))
+        user_modes.pop(str(cid), None)
         return
 
-    if mode == "ai_assistant":
+    if mode == "pdf" and m.content_type == 'document':
         try:
-            response = requests.post(
-                "https://text.pollinations.ai/",
-                json={"messages": [
-                    {"role": "system", "content": "You are a helpful, smart AI assistant. Answer clearly and accurately in the user's language."},
-                    {"role": "user", "content": text}
-                ]},
-                timeout=30
-            )
-            answer = response.text
-            bot.send_message(chat_id, f"🤖 پاسخ هوش مصنوعی:\n\n{answer}", reply_markup=back_menu(chat_id))
-        except Exception:
-            logger.exception("AI error")
-            bot.send_message(chat_id, tr(chat_id, "error"), reply_markup=back_menu(chat_id))
-        return
-        
-    user_text[str(chat_id)] = text
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.row(types.InlineKeyboardButton(tr(chat_id, "opt_translate"), callback_data="do_translate"))
-    markup.row(types.InlineKeyboardButton(tr(chat_id, "opt_pdf"), callback_data="do_pdf"))
-    markup.row(types.InlineKeyboardButton(tr(chat_id, "back"), callback_data="home"))
-    bot.send_message(chat_id, tr(chat_id, "text_options"), reply_markup=markup)
-
-# =============== MEDIA HANDLER ===============
-def get_file_bytes(file_id):
-    info = bot.get_file(file_id)
-    if info.file_size and info.file_size > MAX_FILE_MB * 1024 * 1024:
-        raise ValueError("too_large")
-    data = bot.download_file(info.file_path)
-    if len(data) > MAX_FILE_MB * 1024 * 1024:
-        raise ValueError("too_large")
-    return data
-
-@bot.message_handler(content_types=["photo", "document"])
-def media_handler(message):
-    chat_id = message.chat.id
-    register_user(message.from_user)
-    if not check_lock(chat_id, message.from_user.id): return
-    if not is_approved(message.from_user.id):
-        bot.send_message(chat_id, tr(chat_id, "wait_approval"))
-        return
-
-    mode = user_modes.get(str(chat_id))
-    is_photo = message.content_type == "photo"
-    
-    is_pdf = False
-    if message.content_type == "document":
-        mime = message.document.mime_type or ""
-        fname = (message.document.file_name or "").lower()
-        if "pdf" in mime or fname.endswith(".pdf") or "pdf" in fname:
-            is_pdf = True
-
-    try:
-        with tempfile.TemporaryDirectory() as td:
-            td = Path(td)
-
-            if is_photo and mode == "img_to_pdf":
-                raw = get_file_bytes(message.photo[-1].file_id)
-                source = td / "input.jpg"
-                output = td / "image.pdf"
-                source.write_bytes(raw)
-                with Image.open(source) as img:
-                    img = ImageOps.exif_transpose(img).convert("RGB")
-                    img.save(output, "PDF", resolution=150)
-                with output.open("rb") as f:
-                    bot.send_document(chat_id, f, caption=tr(chat_id, "done"), reply_markup=back_menu(chat_id))
-                user_modes.pop(str(chat_id), None)
-                ask_rating(chat_id)
-                return
-
-            if is_pdf and mode == "pdf_to_text":
-                raw = get_file_bytes(message.document.file_id)
-                source = td / "input.pdf"
-                output = td / "extracted.txt"
-                source.write_bytes(raw)
-                with source.open("rb") as f:
+            info = bot.get_file(m.document.file_id)
+            data = bot.download_file(info.file_path)
+            with tempfile.TemporaryDirectory() as td:
+                src = Path(td) / "in.pdf"; out = Path(td) / "out.txt"
+                src.write_bytes(data)
+                with src.open("rb") as f:
                     reader = PyPDF2.PdfReader(f)
-                    extracted = "\n\n".join(page.extract_text() or "" for page in reader.pages)
-                if not extracted.strip():
-                    bot.send_message(chat_id, tr(chat_id, "no_pdf_text"), reply_markup=back_menu(chat_id))
-                else:
-                    output.write_text(extracted, encoding="utf-8")
-                    with output.open("rb") as f:
-                        bot.send_document(chat_id, f, caption=tr(chat_id, "done"), reply_markup=back_menu(chat_id))
-                user_modes.pop(str(chat_id), None)
-                ask_rating(chat_id)
-                return
-
-        bot.send_message(chat_id, tr(chat_id, "bad_file"), reply_markup=back_menu(chat_id))
-    except ValueError:
-        bot.send_message(chat_id, tr(chat_id, "too_large"))
-    except Exception:
-        logger.exception("Media processing error")
-        bot.send_message(chat_id, tr(chat_id, "error"), reply_markup=back_menu(chat_id))
+                    txt = "\n".join(p.extract_text() or "" for p in reader.pages)
+                out.write_text(txt, encoding="utf-8")
+                with out.open("rb") as f: bot.send_document(cid, f, caption=tr(cid,"done"), reply_markup=back_menu(cid))
+        except:
+            bot.send_message(cid, tr(cid,"error"), reply_markup=back_menu(cid))
+        user_modes.pop(str(cid), None)
+        return
 
 # =============== START BOT ===============
 if __name__ == "__main__":
-    logger.info("%s is starting...", BOT_NAME)
-    
-    try:
-        bot.set_my_commands([
-            types.BotCommand("start", "شروع ربات / Start Bot"),
-            types.BotCommand("language", "تغییر زبان / Change Language")
-        ])
-        
-        for admin_id in ADMIN_IDS:
-            try:
-                bot.set_my_commands([
-                    types.BotCommand("start", "شروع ربات / Start Bot"),
-                    types.BotCommand("panel", "پنل مدیریت / Admin Panel"),
-                    types.BotCommand("language", "تغییر زبان / Change Language")
-                ], scope=types.BotCommandScopeChat(admin_id))
-            except Exception:
-                pass
-    except Exception as e:
-        logger.error(f"Failed to set commands: {e}")
-
+    logger.info("Starting...")
     bot.infinity_polling(skip_pending=True, timeout=30, long_polling_timeout=30)
