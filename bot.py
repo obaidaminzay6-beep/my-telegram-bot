@@ -1,3 +1,5 @@
+
+
 import os
 import re
 import json
@@ -186,13 +188,15 @@ def show_home(cid, name=""):
 def make_pdf(text, out):
     pdf = FPDF()
     pdf.add_page()
-    font = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-    if not os.path.isfile(font): 
-        font = "/data/data/com.termux/files/usr/share/fonts/TTF/DejaVuSans.ttf"
     
-    if os.path.isfile(font):
-        pdf.add_font("N", fname=font); pdf.set_font("N", size=12)
+    # مسیر دقیق فونت در سرور گیت‌هاب (اوبونتو)
+    font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    
+    if os.path.isfile(font_path):
+        pdf.add_font("N", fname=font_path)
+        pdf.set_font("N", size=12)
     else:
+        # اگر فونت نبود، از فونت پیش‌فرض استفاده کن (ممکنه فارسی خراب بشه)
         pdf.set_font("Helvetica", size=12)
 
     try:
@@ -203,7 +207,7 @@ def make_pdf(text, out):
     
     for line in text.splitlines() or [""]: 
         try: pdf.multi_cell(0, 8, line)
-        except: pass # اگر فونت فارسی نداشت، خطا نده و ادامه بده
+        except: pass
     
     pdf.output(str(out))
 
@@ -349,7 +353,6 @@ def on_text(m):
             bot.send_message(cid, tr(cid,"ai_ans", ans=ans), reply_markup=back_menu(cid))
         except:
             bot.send_message(cid, tr(cid,"error"), reply_markup=back_menu(cid))
-        # خط پاک کردن حالت حذف شد تا چت ادامه پیدا کند
         return
 
     if mode == "trans":
@@ -361,7 +364,6 @@ def on_text(m):
             bot.send_message(cid, tr(cid,"trans_ans", ans=ans), reply_markup=back_menu(cid))
         except:
             bot.send_message(cid, tr(cid,"error"), reply_markup=back_menu(cid))
-        # خط پاک کردن حالت حذف شد تا چت ادامه پیدا کند
         return
 
     if mode == "text":
@@ -371,7 +373,8 @@ def on_text(m):
                 make_pdf(m.text, p)
                 with p.open("rb") as f:
                     bot.send_document(cid, f, caption=tr(cid,"done"), reply_markup=back_menu(cid))
-        except:
+        except Exception as e:
+            logger.error(f"PDF Error: {e}")
             bot.send_message(cid, tr(cid,"error"), reply_markup=back_menu(cid))
         user_modes.pop(str(cid), None)
         return
